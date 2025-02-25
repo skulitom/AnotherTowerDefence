@@ -30,6 +30,9 @@ class Projectile:
         self.pulse_speed = random.uniform(0.8, 1.2)
         self.size_oscillation = random.uniform(0.8, 1.2)
         
+        # Initialize direction vector (needed for drawing)
+        self.direction = Vector2(1, 0)  # Default direction, will be updated in update method
+        
         # Determine projectile color based on tower type
         if tower_type in tower_types:
             self.color = tower_types[tower_type].get("particle_color", tower_types[tower_type]["color"])
@@ -75,18 +78,23 @@ class Projectile:
         else:
             direction = direction.normalize()
             
+        # Save the direction as an attribute for use in draw method
+        self.direction = direction
+            
         # Add slight variation to movement for some tower types
         if self.tower_type == "Fire":
             # Add flame-like random movement
             direction.x += random.uniform(-0.1, 0.1)
             direction.y += random.uniform(-0.1, 0.1)
             direction = direction.normalize()
+            self.direction = direction  # Update direction after variations
         elif self.tower_type == "Air":
             # Add wind-like oscillation
             t = pygame.time.get_ticks() / 300
             direction.x += math.sin(t + self.pulse_offset) * 0.1
             direction.y += math.cos(t + self.pulse_offset) * 0.1
             direction = direction.normalize()
+            self.direction = direction  # Update direction after variations
             
         # Move projectile
         self.pos += direction * self.speed * dt
@@ -191,7 +199,7 @@ class Projectile:
             drop_surf = pygame.Surface((int(screen_radius * 2), int(screen_radius * 3)), pygame.SRCALPHA)
             pygame.draw.ellipse(drop_surf, (*self.color, 200), (0, 0, int(screen_radius * 2), int(screen_radius * 3)))
             # Rotate droplet to point in direction of movement
-            angle = math.degrees(math.atan2(self.velocity.y, self.velocity.x))
+            angle = math.degrees(math.atan2(self.direction.y, self.direction.x))
             drop_surf = pygame.transform.rotate(drop_surf, -angle - 90)
             drop_rect = drop_surf.get_rect(center=(int(screen_pos.x), int(screen_pos.y)))
             surface.blit(drop_surf, drop_rect.topleft)
