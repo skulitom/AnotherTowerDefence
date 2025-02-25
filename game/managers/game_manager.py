@@ -96,6 +96,7 @@ class GameManager:
         self.wave_active = False
         self.fullscreen = False
         self.game_over = False  # Reset game over flag
+        self.tower_placement_mode = False  # Flag to indicate if tower placement mode is active
         
         # Tower placement
         self.is_shift_pressed = False
@@ -145,9 +146,11 @@ class GameManager:
                 if clicked_tower:
                     # Select tower
                     self.selected_tower = clicked_tower
+                    # If a tower is selected, exit tower placement mode
+                    self.tower_placement_mode = False
                     return True
-                elif self.is_valid_tower_position(world_pos):
-                    # Create tower at click position
+                elif self.tower_placement_mode and self.is_valid_tower_position(world_pos):
+                    # Only create tower if in tower placement mode
                     new_tower = self.create_tower(self.current_tower_type, world_pos)
                     if new_tower:
                         self.selected_tower = new_tower
@@ -436,8 +439,18 @@ class GameManager:
             if self.money >= upgrade_cost:
                 self.money -= upgrade_cost
                 tower.upgrade(upgrade_type)
+                
+                # Show more descriptive upgrade text
+                upgrade_names = {
+                    "damage": "Damage",
+                    "range": "Range", 
+                    "speed": "Attack Speed",
+                    "special": "Special Ability"
+                }
+                upgrade_name = upgrade_names.get(upgrade_type, upgrade_type.capitalize())
+                
                 self.floating_texts.append(
-                    FloatingText(f"Upgraded {upgrade_type}!", 
+                    FloatingText(f"Upgraded {upgrade_name}!", 
                                (tower.pos.x, tower.pos.y - 30),
                                (100, 255, 100), 20)
                 )

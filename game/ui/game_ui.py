@@ -3,6 +3,7 @@ from game.ui.tower_info_panel import TowerInfoPanel
 from game.ui.wave_panel import WavePanel
 from game.ui.status_panel import StatusPanel
 from game.ui.tower_selection_panel import TowerSelectionPanel
+from game.ui.floating_text import FloatingText  # Fix circular import by importing directly
 
 class GameUI:
     def __init__(self, screen_width, screen_height):
@@ -18,7 +19,10 @@ class GameUI:
         # Tower tooltip info for hover
         self.tooltip_font = pygame.font.SysFont(None, 18)
         self.hover_tower = None
-    
+        
+        # Store floating texts
+        self.floating_texts = []
+        
     def calculate_panel_dimensions(self):
         """Calculate optimal panel dimensions based on screen size"""
         # Calculate sidebar width proportionally
@@ -139,19 +143,27 @@ class GameUI:
         self.wave_panel.create_buttons()
         self.tower_selection_panel.create_buttons()
     
+    def add_floating_text(self, x, y, text, color, size=20, lifetime=2.0):
+        """Add a floating text message to the UI"""
+        self.floating_texts.append(
+            FloatingText(text, (x, y), color, size, duration=lifetime)
+        )
+    
     def update(self, dt, game_state=None):
         """Update UI elements"""
-        # Nothing to animate or update in real-time yet
-        # This method exists for compatibility with the game update cycle
-        pass
-    
+        # Update floating texts
+        for text in self.floating_texts[:]:
+            if not text.update(dt):
+                self.floating_texts.remove(text)
+                
     def draw(self, surface, game_state, assets):
         # Update panels with current game state
         self.tower_info_panel.set_tower(game_state.get("selected_tower"), game_state.get("money", 0))
         self.status_panel.update(
             game_state.get("money", 0), 
             game_state.get("lives", 0), 
-            game_state.get("current_tower_type")
+            game_state.get("current_tower_type"),
+            game_state.get("tower_placement_mode", False)
         )
         self.tower_selection_panel.update(
             game_state.get("current_tower_type"),
@@ -169,6 +181,10 @@ class GameUI:
         self.status_panel.draw(surface, assets)
         self.tower_selection_panel.draw(surface)
         self.wave_panel.draw(surface)
+        
+        # Draw floating texts
+        for text in self.floating_texts:
+            text.draw(surface)
         
         # Draw hover tooltip for towers
         hover_tower = game_state.get("hover_tower")
@@ -225,6 +241,12 @@ class GameUI:
         if action:
             result["action"] = action
             result["target"] = target
+            return result
+            
+        # Handle status panel events
+        status_result = self.status_panel.handle_event(event)
+        if status_result["action"]:
+            result["action"] = status_result["action"]
             return result
         
         # Handle tower selection events

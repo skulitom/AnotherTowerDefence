@@ -264,7 +264,8 @@ class Renderer:
                 "enemies_remaining": len(self.game.enemies),
                 "wave_progress": self.game.wave_manager.wave_progress,
                 "wave_active": self.game.wave_active,
-                "camera_zoom": self.game.camera.zoom
+                "camera_zoom": self.game.camera.zoom,
+                "tower_placement_mode": self.game.tower_placement_mode
             },
             self.game.assets
         )
@@ -277,7 +278,15 @@ class Renderer:
         zoom_text = font_small.render(f"Zoom: {self.game.camera.zoom:.1f}x (Mouse Wheel to Zoom)", True, (160, 160, 180))
         pan_text = font_small.render("Pan: Hold Right Mouse Button and Drag", True, (160, 160, 180))
         alt_pan_text = font_small.render("Alt. Pan: SHIFT+Left Mouse or Middle Mouse", True, (160, 160, 180))
-        build_text = font_small.render("Build: Left-Click and Drag", True, (160, 160, 180))
+        
+        # Change "Build" text to indicate placement mode status
+        build_text_color = (100, 255, 100) if self.game.tower_placement_mode else (160, 160, 180)
+        build_text = font_small.render(
+            f"Place Towers: {'ACTIVE - Click to place towers' if self.game.tower_placement_mode else 'Press P to activate'}", 
+            True, 
+            build_text_color
+        )
+        
         reset_text = font_small.render("Reset Camera: Press R", True, (160, 160, 180))
         fs_text = font_small.render("Toggle Fullscreen: F11", True, (160, 160, 180))
         
@@ -308,11 +317,16 @@ class Renderer:
         if self.game.is_panning:
             mode_text = font_small.render("Mode: Pan", True, (100, 200, 255))
         else:
-            mode_text = font_small.render(
-                f"Mode: {'Pan' if self.game.is_shift_pressed or right_mouse_pressed else 'Build'}", 
-                True, 
-                (100, 200, 255) if self.game.is_shift_pressed or right_mouse_pressed else (100, 255, 100)
-            )
+            # Change the mode text to indicate placement mode
+            if self.game.tower_placement_mode:
+                mode_color = (100, 255, 100)
+                mode_text = font_small.render("Mode: Tower Placement", True, mode_color)
+            else:
+                mode_text = font_small.render(
+                    f"Mode: {'Pan' if self.game.is_shift_pressed or right_mouse_pressed else 'Select'}", 
+                    True, 
+                    (100, 200, 255) if self.game.is_shift_pressed or right_mouse_pressed else (220, 220, 220)
+                )
         
         # Position the mode text with proper padding
         panel_padding = int(self.game.screen_height * 0.022)

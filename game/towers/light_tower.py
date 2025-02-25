@@ -284,35 +284,40 @@ class LightTower(BaseTower):
                 
                 # Create pulsing circle
                 if reveal_size > 0:
-                    reveal_surf = pygame.Surface((int(reveal_size * 2), int(reveal_size * 2)), pygame.SRCALPHA)
+                    # Use safe surface size
+                    surf_width, surf_height = self.get_safe_surface_size(reveal_size * 2, reveal_size * 2, 2)
+                    reveal_surf = pygame.Surface((surf_width, surf_height), pygame.SRCALPHA)
                     alpha = int(80 * (1 - self.reveal_pulse))
                     pygame.draw.circle(reveal_surf, (255, 255, 100, alpha),
-                                     (reveal_size, reveal_size),
-                                     reveal_size, 
+                                     (surf_width // 2, surf_height // 2),
+                                     min(surf_width // 2, surf_height // 2), 
                                      max(1, int(2 * zoom_factor)))
-                    surface.blit(reveal_surf, (int(screen_pos.x - reveal_size), int(screen_pos.y - reveal_size)))
+                    surface.blit(reveal_surf, (int(screen_pos.x - surf_width // 2), int(screen_pos.y - surf_height // 2)))
             
             # Draw light rays
-            ray_surf = pygame.Surface((int(self.ray_length * zoom_factor * 2), int(self.ray_length * zoom_factor * 2)), pygame.SRCALPHA)
+            ray_length = max(2, self.ray_length * zoom_factor)
+            # Use safe surface size
+            surf_width, surf_height = self.get_safe_surface_size(ray_length * 2, ray_length * 2, 4)
+            ray_surf = pygame.Surface((surf_width, surf_height), pygame.SRCALPHA)
             for i in range(self.ray_count):
                 ray_angle = (i / self.ray_count) * math.pi * 2 + math.radians(self.ray_rotation)
-                ray_end_x = self.ray_length * zoom_factor + math.cos(ray_angle) * self.ray_length * zoom_factor
-                ray_end_y = self.ray_length * zoom_factor + math.sin(ray_angle) * self.ray_length * zoom_factor
+                ray_end_x = surf_width // 2 + math.cos(ray_angle) * ray_length
+                ray_end_y = surf_height // 2 + math.sin(ray_angle) * ray_length
                 
                 # Draw ray with glow
                 ray_color = (255, 255, 100, 150)
                 pygame.draw.line(ray_surf, ray_color,
-                               (self.ray_length * zoom_factor, self.ray_length * zoom_factor),
+                               (surf_width // 2, surf_height // 2),
                                (ray_end_x, ray_end_y),
-                               max(1, int(self.ray_width * zoom_factor)))
+                               max(1, int(2 * zoom_factor)))
             
             # Add glow to center of rays
             pygame.draw.circle(ray_surf, (255, 255, 150, 100), 
-                             (int(self.ray_length * zoom_factor), int(self.ray_length * zoom_factor)), 
+                             (int(surf_width // 2), int(surf_height // 2)), 
                              int(screen_radius * 0.8))
             
             # Blit rays to surface
-            ray_pos = (int(screen_pos.x - self.ray_length * zoom_factor), int(screen_pos.y - self.ray_length * zoom_factor))
+            ray_pos = (int(screen_pos.x - surf_width // 2), int(screen_pos.y - surf_height // 2))
             surface.blit(ray_surf, ray_pos)
             
             # Draw light motes
@@ -335,13 +340,15 @@ class LightTower(BaseTower):
                                      max(1, int(mote_size)))
                     
                     # Outer glow
-                    glow_size = mote_size * 2
+                    glow_size = max(2, mote_size * 2)
                     if glow_size > 0:
-                        glow_surf = pygame.Surface((int(glow_size * 2), int(glow_size * 2)), pygame.SRCALPHA)
+                        # Use safe surface size
+                        surf_width, surf_height = self.get_safe_surface_size(glow_size * 2, glow_size * 2, 4)
+                        glow_surf = pygame.Surface((surf_width, surf_height), pygame.SRCALPHA)
                         pygame.draw.circle(glow_surf, (255, 255, 150, 100), 
-                                         (glow_size, glow_size), 
-                                         glow_size)
-                        surface.blit(glow_surf, (int(mote_x - glow_size), int(mote_y - glow_size)))
+                                         (surf_width // 2, surf_height // 2), 
+                                         min(surf_width // 2, surf_height // 2))
+                        surface.blit(glow_surf, (int(mote_x - surf_width // 2), int(mote_y - surf_height // 2)))
             
             # Draw light crown above tower
             if self.level >= 2:
@@ -382,28 +389,31 @@ class LightTower(BaseTower):
                     
                 # Add glow to crown
                 for point in crown_points:
-                    glow_size = 3 * zoom_factor
+                    glow_size = max(2, 3 * zoom_factor)
                     if glow_size > 0:
-                        glow_surf = pygame.Surface((int(glow_size * 2), int(glow_size * 2)), pygame.SRCALPHA)
+                        # Use safe surface size
+                        surf_width, surf_height = self.get_safe_surface_size(glow_size * 2, glow_size * 2, 4)
+                        glow_surf = pygame.Surface((surf_width, surf_height), pygame.SRCALPHA)
                         pygame.draw.circle(glow_surf, (255, 255, 150, 100), 
-                                         (glow_size, glow_size), 
-                                         glow_size)
-                        surface.blit(glow_surf, (int(point[0] - glow_size), int(point[1] - glow_size)))
+                                         (surf_width // 2, surf_height // 2), 
+                                         min(surf_width // 2, surf_height // 2))
+                        surface.blit(glow_surf, (int(point[0] - surf_width // 2), int(point[1] - surf_height // 2)))
             
             # Draw light burst effect
             if self.burst_chance > 0 and self.burst_timer >= self.burst_cooldown * 0.8:
                 # Draw charging effect as burst is about to happen
                 charge_percent = (self.burst_timer - (self.burst_cooldown * 0.8)) / (self.burst_cooldown * 0.2)
-                charge_radius = self.burst_radius * charge_percent * zoom_factor
+                charge_radius = max(2, self.burst_radius * charge_percent * zoom_factor)
                 
                 if charge_radius > 0:
-                    charge_surf = pygame.Surface((int(charge_radius * 2), int(charge_radius * 2)), pygame.SRCALPHA)
+                    # Use safe surface size
+                    surf_width, surf_height = self.get_safe_surface_size(charge_radius * 2, charge_radius * 2, 4)
+                    charge_surf = pygame.Surface((surf_width, surf_height), pygame.SRCALPHA)
                     charge_alpha = int(50 * charge_percent)
                     pygame.draw.circle(charge_surf, (255, 255, 100, charge_alpha),
-                                     (charge_radius, charge_radius),
-                                     charge_radius,
-                                     max(1, int(2 * zoom_factor)))
-                    surface.blit(charge_surf, (int(screen_pos.x - charge_radius), int(screen_pos.y - charge_radius)))
+                                     (surf_width // 2, surf_height // 2),
+                                     min(surf_width // 2, surf_height // 2))
+                    surface.blit(charge_surf, (int(screen_pos.x - surf_width // 2), int(screen_pos.y - surf_height // 2)))
         except Exception as e:
             print(f"Error in draw_effects: {e}")
             import traceback

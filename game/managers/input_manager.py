@@ -16,22 +16,26 @@ class InputManager:
     
     def handle_event(self, event):
         """Process a pygame event"""
+        handled = False
+        
         if event.type == pygame.VIDEORESIZE:
-            self.handle_resize_event(event)
+            handled = self.handle_resize_event(event)
         elif event.type == pygame.KEYDOWN:
-            self.handle_key_down_event(event)
+            handled = self.handle_key_down_event(event)
         elif event.type == pygame.MOUSEBUTTONDOWN:
-            self.handle_mouse_down_event(event)
+            handled = self.handle_mouse_down_event(event)
         elif event.type == pygame.MOUSEBUTTONUP:
-            self.handle_mouse_up_event(event)
+            handled = self.handle_mouse_up_event(event)
         elif event.type == pygame.MOUSEMOTION:
-            self.handle_mouse_motion_event(event)
+            handled = self.handle_mouse_motion_event(event)
         
         # Update keyboard state for continuous input detection
         self.update_key_state()
         
         # Update mouse button state
         self.update_mouse_state()
+        
+        return handled
     
     def update_key_state(self):
         """Update the keyboard state for continuous input detection"""
@@ -92,43 +96,139 @@ class InputManager:
     def handle_resize_event(self, event):
         """Handle window resize event"""
         self.game.handle_resize(event.size[0], event.size[1])
+        return True
     
     def handle_key_down_event(self, event):
         """Handle key down events"""
         if event.key == pygame.K_ESCAPE:
             if self.game.fullscreen:
                 # Exit fullscreen instead of quitting if in fullscreen mode
+                pygame.display.set_mode((self.game.screen_width, self.game.screen_height), pygame.RESIZABLE)
                 self.game.fullscreen = False
-                self.game.screen = pygame.display.set_mode(
-                    (self.game.screen_width, self.game.screen_height), pygame.RESIZABLE
+            elif self.game.dragging_tower:
+                # Cancel tower placement
+                self.game.dragging_tower = False
+                self.game.tower_preview_pos = None
+                self.game.ui.add_floating_text(
+                    self.game.screen_width * 0.5,
+                    50,
+                    "Tower placement canceled",
+                    (255, 100, 100),
+                    size=24,
+                    lifetime=1.5
+                )
+            elif self.game.selected_tower:
+                # Deselect tower
+                self.game.selected_tower = None
+                self.game.ui.add_floating_text(
+                    self.game.screen_width * 0.5,
+                    50,
+                    "Tower deselected",
+                    (200, 200, 200),
+                    size=20,
+                    lifetime=1.0
+                )
+            elif self.game.tower_placement_mode:
+                # Exit tower placement mode
+                self.game.tower_placement_mode = False
+                self.game.ui.add_floating_text(
+                    self.game.screen_width * 0.5,
+                    50,
+                    "Tower placement mode: OFF",
+                    (255, 100, 100),
+                    size=24,
+                    lifetime=1.5
                 )
             else:
+                # Quit game
                 pygame.event.post(pygame.event.Event(pygame.QUIT))
         elif event.key == pygame.K_F11:
             # Toggle fullscreen
-            self.game.fullscreen = not self.game.fullscreen
             if self.game.fullscreen:
-                screen_width_before = self.game.screen_width
-                screen_height_before = self.game.screen_height
-                self.game.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
-                self.game.screen_width, self.game.screen_height = self.game.screen.get_size()
-                
-                # Only update UI and camera if size actually changed
-                if (self.game.screen_width != screen_width_before or 
-                    self.game.screen_height != screen_height_before):
-                    self.game.handle_resize(self.game.screen_width, self.game.screen_height)
+                pygame.display.set_mode((self.game.screen_width, self.game.screen_height), pygame.RESIZABLE)
+                self.game.fullscreen = False
             else:
-                self.game.screen = pygame.display.set_mode(
-                    (self.game.screen_width, self.game.screen_height), pygame.RESIZABLE
+                pygame.display.set_mode((self.game.screen_width, self.game.screen_height), pygame.FULLSCREEN)
+                self.game.fullscreen = True
+        elif event.key == pygame.K_p:
+            # Toggle tower placement mode
+            self.game.tower_placement_mode = not self.game.tower_placement_mode
+            # If we're exiting placement mode, cancel any in-progress tower placement
+            if not self.game.tower_placement_mode and self.game.dragging_tower:
+                self.game.dragging_tower = False
+                self.game.tower_preview_pos = None
+            
+            # Add visual feedback
+            status = "ON" if self.game.tower_placement_mode else "OFF"
+            color = (100, 255, 100) if self.game.tower_placement_mode else (255, 100, 100)
+            self.game.ui.add_floating_text(
+                self.game.screen_width * 0.5,
+                50,
+                f"Tower placement mode: {status}",
+                color,
+                size=24,
+                lifetime=2.0
+            )
+        elif event.key == pygame.K_SPACE:
+            # Start next wave if not active
+            if not self.game.wave_active and not self.game.game_over:
+                self.game.wave_manager.start_wave()
+        elif event.key in [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5, pygame.K_6, pygame.K_7]:
+            # Select tower type
+            key_to_tower = {
+                pygame.K_1: "Fire",
+                pygame.K_2: "Water",
+                pygame.K_3: "Earth",
+                pygame.K_4: "Air",
+                pygame.K_5: "Lightning",
+                pygame.K_6: "Ice",
+                pygame.K_7: "Nature"
+            }
+            if event.key in key_to_tower:
+                self.game.current_tower_type = key_to_tower[event.key]
+                self.game.selected_tower = None
+                # Automatically enter tower placement mode
+                self.game.tower_placement_mode = True
+                # Add visual feedback
+                self.game.ui.add_floating_text(
+                    self.game.screen_width * 0.5,
+                    50,
+                    f"Selected: {self.game.current_tower_type} Tower",
+                    (100, 255, 100),
+                    size=24,
+                    lifetime=2.0
                 )
-        elif event.key == pygame.K_SPACE and not self.game.wave_active:
-            # Start next wave
-            self.game.wave_manager.start_wave()
-        elif event.key == pygame.K_r:
-            # Reset camera
-            self.game.camera.x = self.game.screen_width / 2
-            self.game.camera.y = self.game.screen_height / 2
-            self.game.camera.zoom = 1.0
+        elif event.key == pygame.K_x and self.game.selected_tower:
+            # Sell selected tower
+            tower_type = self.game.selected_tower.tower_type
+            refund = self.game.sell_tower(self.game.selected_tower)
+            self.game.ui.add_floating_text(
+                self.game.screen_width * 0.5,
+                50,
+                f"Sold {tower_type} Tower for ${refund}",
+                (255, 255, 100),
+                size=24,
+                lifetime=2.0
+            )
+        elif event.key in [pygame.K_q, pygame.K_w, pygame.K_e, pygame.K_r] and self.game.selected_tower:
+            # Upgrade selected tower
+            key_to_upgrade = {
+                pygame.K_q: "damage",
+                pygame.K_w: "range",
+                pygame.K_e: "speed",
+                pygame.K_r: "special"
+            }
+            upgrade_result = self.game.upgrade_tower(self.game.selected_tower, key_to_upgrade[event.key])
+            if upgrade_result:
+                self.game.ui.add_floating_text(
+                    self.game.screen_width * 0.5,
+                    50,
+                    f"Upgraded {self.game.selected_tower.tower_type} Tower {key_to_upgrade[event.key]}",
+                    (100, 255, 255),
+                    size=24,
+                    lifetime=2.0
+                )
+        return True
     
     def handle_mouse_down_event(self, event):
         """Handle mouse button down events"""
@@ -142,18 +242,24 @@ class InputManager:
         if event.button == 2:  # Middle mouse button for panning
             self.game.camera.start_drag(mouse_pos[0], mouse_pos[1])
             self.game.is_panning = True
+            return True
         elif event.button == 3:  # Right mouse button for panning
             self.game.camera.start_drag(mouse_pos[0], mouse_pos[1])
             self.game.is_panning = True
+            return True
         elif event.button == 4:  # Mouse wheel up for zoom in
             self.game.camera.zoom_at(mouse_pos[0], mouse_pos[1], 1.1)
+            return True
         elif event.button == 5:  # Mouse wheel down for zoom out
             self.game.camera.zoom_at(mouse_pos[0], mouse_pos[1], 0.9)
+            return True
         elif event.button == 1:  # Left mouse button
             if in_sidebar:
-                self.handle_sidebar_click(event, mouse_pos)
+                return self.handle_sidebar_click(event, mouse_pos)
             else:
-                self.handle_game_click(event, mouse_pos)
+                return self.handle_game_click(event, mouse_pos)
+                
+        return True  # Default to handled
     
     def handle_sidebar_click(self, event, mouse_pos):
         """Handle clicks in the sidebar UI"""
@@ -169,12 +275,47 @@ class InputManager:
         if ui_result["action"] == "select_tower":
             self.game.current_tower_type = ui_result["target"]
             self.game.selected_tower = None
+            # Automatically enter tower placement mode when selecting a tower type
+            self.game.tower_placement_mode = True
+            # Add a floating text to inform the user
+            self.game.ui.add_floating_text(
+                self.game.screen_width * 0.5,
+                50,
+                f"Tower placement mode: {self.game.current_tower_type} Tower",
+                (100, 255, 100),
+                size=24,
+                lifetime=2.0
+            )
+            return True
         elif ui_result["action"] == "upgrade" and self.game.selected_tower:
             self.game.upgrade_tower(self.game.selected_tower, ui_result["target"])
+            return True
         elif ui_result["action"] == "sell" and self.game.selected_tower:
             self.game.sell_tower(self.game.selected_tower)
+            return True
         elif ui_result["action"] == "start_wave" and not self.game.wave_active:
             self.game.wave_manager.start_wave()
+            return True
+        elif ui_result["action"] == "toggle_placement_mode":
+            self.game.tower_placement_mode = not self.game.tower_placement_mode
+            # If turning off placement mode, cancel any in-progress placement
+            if not self.game.tower_placement_mode and self.game.dragging_tower:
+                self.game.dragging_tower = False 
+                self.game.tower_preview_pos = None
+            # Add a floating text to inform the user
+            status = "ON" if self.game.tower_placement_mode else "OFF"
+            color = (100, 255, 100) if self.game.tower_placement_mode else (255, 100, 100)
+            self.game.ui.add_floating_text(
+                self.game.screen_width * 0.5,
+                50,
+                f"Tower placement mode: {status}",
+                color,
+                size=24,
+                lifetime=2.0
+            )
+            return True
+            
+        return True  # Default to handled
     
     def handle_game_click(self, event, mouse_pos):
         """Handle clicks in the game area"""
@@ -184,6 +325,7 @@ class InputManager:
         if self.game.is_shift_pressed:
             self.game.camera.start_drag(mouse_pos[0], mouse_pos[1])
             self.game.is_panning = True
+            return True
         else:
             # Check if clicked on existing tower
             tower_clicked = False
@@ -191,20 +333,32 @@ class InputManager:
                 if (tower.pos - world_pos).length() <= tower.radius:
                     self.game.selected_tower = tower
                     tower_clicked = True
-                    break
+                    # If a tower is selected, exit tower placement mode
+                    self.game.tower_placement_mode = False
+                    return True
                     
-            # If no tower clicked, start dragging a new tower
+            # If no tower clicked and tower placement mode is active, start dragging a new tower
             if not tower_clicked:
-                cost = tower_types[self.game.current_tower_type]["cost"]
-                if self.game.money >= cost:
-                    self.game.dragging_tower = True
-                    self.game.tower_preview_pos = world_pos
+                if self.game.tower_placement_mode:
+                    cost = tower_types[self.game.current_tower_type]["cost"]
+                    if self.game.money >= cost:
+                        self.game.dragging_tower = True
+                        self.game.tower_preview_pos = world_pos
+                        return True
+                    else:
+                        self.game.floating_texts.append(
+                            FloatingText("Not enough money!", 
+                                      (world_pos.x, world_pos.y - 20),
+                                      (255, 100, 100), 20)
+                        )
+                        return True
                 else:
-                    self.game.floating_texts.append(
-                        FloatingText("Not enough money!", 
-                                  (world_pos.x, world_pos.y - 20),
-                                  (255, 100, 100), 20)
-                    )
+                    # If we're not in tower placement mode and no tower was clicked,
+                    # just deselect the current tower
+                    self.game.selected_tower = None
+                    return True
+        
+        return True  # Default to handled
     
     def handle_mouse_up_event(self, event):
         """Handle mouse button up events"""
@@ -212,14 +366,17 @@ class InputManager:
             # End of shift+left click panning
             self.game.camera.end_drag()
             self.game.is_panning = False
+            return True
         elif event.button == 2:  # Middle mouse button released
             if self.game.is_panning:
                 self.game.camera.end_drag()
                 self.game.is_panning = False
+                return True
         elif event.button == 3:  # Right mouse button released
             if self.game.is_panning:
                 self.game.camera.end_drag()
                 self.game.is_panning = False
+                return True
         elif event.button == 1 and self.game.dragging_tower:  # Complete tower placement
             mouse_pos = pygame.mouse.get_pos()
             world_pos = Vector2(*self.game.camera.unapply(mouse_pos[0], mouse_pos[1]))
@@ -229,14 +386,37 @@ class InputManager:
             
             if valid_placement:
                 if self.game.add_tower(world_pos):
-                    pass  # Tower added successfully
+                    self.game.ui.add_floating_text(
+                        self.game.screen_width * 0.5,
+                        50,
+                        f"Placed {self.game.current_tower_type} Tower",
+                        (100, 255, 100),
+                        size=24,
+                        lifetime=1.5
+                    )
                 else:
+                    self.game.ui.add_floating_text(
+                        self.game.screen_width * 0.5,
+                        50,
+                        f"Not enough money for {self.game.current_tower_type} Tower!",
+                        (255, 100, 100),
+                        size=24,
+                        lifetime=2.0
+                    )
                     self.game.floating_texts.append(
                         FloatingText("Not enough money!", 
                                   (world_pos.x, world_pos.y - 20),
                                   (255, 100, 100), 20)
                     )
             else:
+                self.game.ui.add_floating_text(
+                    self.game.screen_width * 0.5,
+                    50,
+                    "Invalid tower placement location!",
+                    (255, 100, 100),
+                    size=24,
+                    lifetime=2.0
+                )
                 self.game.floating_texts.append(
                     FloatingText("Invalid placement!", 
                               (world_pos.x, world_pos.y - 20),
@@ -245,6 +425,9 @@ class InputManager:
             
             self.game.dragging_tower = False
             self.game.tower_preview_pos = None
+            return True
+            
+        return False  # Not handled
     
     def handle_mouse_motion_event(self, event):
         """Handle mouse motion events"""
@@ -252,3 +435,4 @@ class InputManager:
         if self.game.dragging_tower:
             mouse_pos = pygame.mouse.get_pos()
             self.game.tower_preview_pos = Vector2(*self.game.camera.unapply(mouse_pos[0], mouse_pos[1])) 
+        return True 

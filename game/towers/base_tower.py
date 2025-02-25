@@ -229,6 +229,18 @@ class BaseTower:
                     "amount": tower_types[self.tower_type].get("special_amount", 1.5)
                 }
     
+    def get_safe_surface_size(self, width, height, min_size=1):
+        """Ensure surface dimensions are valid (positive and within reasonable limits)"""
+        safe_width = max(min_size, int(width))
+        safe_height = max(min_size, int(height))
+        
+        # Also set a reasonable maximum size to prevent performance issues
+        max_size = 2000  # Arbitrary but reasonable maximum
+        safe_width = min(safe_width, max_size)
+        safe_height = min(safe_height, max_size)
+        
+        return safe_width, safe_height
+
     def draw(self, surface, assets, show_range=False, selected=False, camera=None):
         """Draw the tower and its effects"""
         # Apply camera transform if provided

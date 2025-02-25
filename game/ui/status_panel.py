@@ -10,11 +10,14 @@ class StatusPanel:
         self.money = 0
         self.lives = 0
         self.selected_tower_type = None
+        self.tower_placement_mode = False
+        self.placement_rect = None  # Rectangle for the placement mode text for click detection
     
-    def update(self, money, lives, selected_tower_type):
+    def update(self, money, lives, selected_tower_type, tower_placement_mode=False):
         self.money = money
         self.lives = lives
         self.selected_tower_type = selected_tower_type
+        self.tower_placement_mode = tower_placement_mode
     
     def draw(self, surface, assets):
         # Draw panel background using the utility function
@@ -33,9 +36,24 @@ class StatusPanel:
         lives_rect = lives_surf.get_rect(midtop=(self.rect.centerx, money_rect.bottom + 10))
         surface.blit(lives_surf, lives_rect)
         
+        # Draw placement mode status (clickable)
+        placement_text = f"Placement Mode: {'ON' if self.tower_placement_mode else 'OFF'}"
+        placement_color = (100, 255, 100) if self.tower_placement_mode else (200, 200, 200)
+        placement_surf = self.font_info.render(placement_text, True, placement_color)
+        self.placement_rect = placement_surf.get_rect(midtop=(self.rect.centerx, lives_rect.bottom + 10))
+        
+        # Draw highlight if this is clickable
+        if self.placement_rect.collidepoint(pygame.mouse.get_pos()):
+            # Draw a highlight behind the text
+            highlight_rect = self.placement_rect.inflate(10, 4)
+            pygame.draw.rect(surface, (60, 60, 80), highlight_rect, 0, 3)
+            pygame.draw.rect(surface, (100, 100, 140), highlight_rect, 1, 3)
+        
+        surface.blit(placement_surf, self.placement_rect)
+        
         # Draw selected tower information
         if self.selected_tower_type:
-            selected_y = lives_rect.bottom + 20
+            selected_y = self.placement_rect.bottom + 20
             
             selected_text = f"Selected Tower:"
             selected_surf = self.font_info.render(selected_text, True, (255, 255, 255))
@@ -66,4 +84,13 @@ class StatusPanel:
             desc_font = pygame.font.SysFont(None, 18)
             desc_surf = desc_font.render(description, True, (200, 200, 200))
             desc_rect = desc_surf.get_rect(midtop=(self.rect.centerx, cost_rect.bottom + 10))
-            surface.blit(desc_surf, desc_rect) 
+            surface.blit(desc_surf, desc_rect)
+
+    def handle_event(self, event):
+        """Handle mouse events on the status panel"""
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:  # Left click
+            # Check if clicked on placement mode text
+            if self.placement_rect and self.placement_rect.collidepoint(event.pos):
+                return {"action": "toggle_placement_mode"}
+        
+        return {"action": None} 

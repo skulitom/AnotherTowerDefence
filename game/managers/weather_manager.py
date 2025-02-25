@@ -286,12 +286,12 @@ class WeatherManager:
             angle = random.uniform(0, math.pi * 2)
             speed = random.uniform(50, 200)
             vel = Vector2(math.cos(angle) * speed, math.sin(angle) * speed)
-            self.game.particle_system.add_particle(
-                pos.x, pos.y,
-                vel.x, vel.y,
+            self.game.particles.add_particle_params(
+                Vector2(pos.x, pos.y),
                 (200, 200, 255),
-                random.uniform(0.3, 0.8),
-                size=random.randint(3, 6)
+                (vel.x, vel.y),
+                random.randint(3, 6),
+                random.uniform(0.3, 0.8)
             )
         
         # Damage enemies in radius

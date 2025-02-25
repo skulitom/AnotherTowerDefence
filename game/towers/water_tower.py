@@ -211,22 +211,26 @@ class WaterTower(BaseTower):
         ripple_time = pygame.time.get_ticks() / 1000 + self.pulse_offset
         for i in range(self.ripple_count):
             phase = (ripple_time * self.ripple_speeds[i] + i / self.ripple_count) % 1
-            ripple_radius = screen_radius * (1 + phase * 2)
+            ripple_radius = max(1, screen_radius * (1 + phase * 2))  # Ensure minimum radius of 1
             alpha = int(100 * (1 - phase) * self.ripple_opacity[i])
-            ripple_surf = pygame.Surface((int(ripple_radius * 2), int(ripple_radius * 2)), pygame.SRCALPHA)
+            
+            # Use safe surface size
+            surf_width, surf_height = self.get_safe_surface_size(ripple_radius * 2, ripple_radius * 2, 2)
+            ripple_surf = pygame.Surface((surf_width, surf_height), pygame.SRCALPHA)
             color = (100, 150, 255, alpha)
-            pygame.draw.circle(ripple_surf, color, (ripple_radius, ripple_radius), ripple_radius, 
+            pygame.draw.circle(ripple_surf, color, (surf_width // 2, surf_height // 2), 
+                              min(surf_width // 2, surf_height // 2), 
                               max(1, int(1 * zoom_factor)))
-            surface.blit(ripple_surf, (int(screen_pos.x - ripple_radius), int(screen_pos.y - ripple_radius)))
+            surface.blit(ripple_surf, (int(screen_pos.x - surf_width // 2), int(screen_pos.y - surf_height // 2)))
         
         # Draw water level indicator (base "floods" with water)
         base_radius = screen_radius * 1.3
-        water_height = base_radius * 0.3 + (self.tide_height * zoom_factor)
+        water_height = max(2, base_radius * 0.3 + (self.tide_height * zoom_factor))  # Ensure minimum height of 2
         water_rect = pygame.Rect(
             int(screen_pos.x - base_radius),
             int(screen_pos.y - (water_height/2)),
-            int(base_radius * 2),
-            int(water_height)
+            max(2, int(base_radius * 2)),  # Ensure minimum width of 2
+            max(2, int(water_height))      # Ensure minimum height of 2
         )
         
         # Draw water surface with multiple layers for depth
@@ -237,14 +241,18 @@ class WaterTower(BaseTower):
                 water_rect.x,
                 water_rect.y + y_offset,
                 water_rect.width,
-                water_rect.height - y_offset
+                max(1, water_rect.height - y_offset)  # Ensure height is at least 1
             )
             
-            water_surf = pygame.Surface((adjusted_rect.width, adjusted_rect.height), pygame.SRCALPHA)
-            water_color = (50 + i*20, 100 + i*20, 200 + i*10, alpha)
-            pygame.draw.ellipse(water_surf, water_color, 
-                              (0, 0, adjusted_rect.width, adjusted_rect.height))
-            surface.blit(water_surf, adjusted_rect.topleft)
+            # Only draw if the dimensions are valid
+            if adjusted_rect.width > 0 and adjusted_rect.height > 0:
+                # Use safe surface size
+                surf_width, surf_height = self.get_safe_surface_size(adjusted_rect.width, adjusted_rect.height, 2)
+                water_surf = pygame.Surface((surf_width, surf_height), pygame.SRCALPHA)
+                water_color = (50 + i*20, 100 + i*20, 200 + i*10, alpha)
+                pygame.draw.ellipse(water_surf, water_color, 
+                                  (0, 0, surf_width, surf_height))
+                surface.blit(water_surf, adjusted_rect.topleft)
         
         # Draw water ripple lines on the surface
         ripple_count = 3
@@ -275,16 +283,21 @@ class WaterTower(BaseTower):
             orb_y = screen_pos.y + math.sin(math.radians(orb['angle'])) * orb['distance'] * zoom_factor + vertical_offset
             
             # Draw water orb with glowing aura
-            orb_size = orb['size'] * zoom_factor * self.water_magic_level
+            orb_size = max(1, orb['size'] * zoom_factor * self.water_magic_level)  # Ensure minimum size of 1
             
             # Inner glow
-            glow_surf = pygame.Surface((int(orb_size * 4), int(orb_size * 4)), pygame.SRCALPHA)
-            pygame.draw.circle(glow_surf, (100, 200, 255, 50), (orb_size * 2, orb_size * 2), orb_size * 2)
-            surface.blit(glow_surf, (int(orb_x - orb_size * 2), int(orb_y - orb_size * 2)))
+            glow_size = max(4, int(orb_size * 4))  # Ensure minimum size of 4
+            # Use safe surface size
+            surf_width, surf_height = self.get_safe_surface_size(glow_size, glow_size, 4)
+            glow_surf = pygame.Surface((surf_width, surf_height), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surf, (100, 200, 255, 50), 
+                             (surf_width // 2, surf_height // 2), 
+                             min(surf_width // 2, surf_height // 2))
+            surface.blit(glow_surf, (int(orb_x - surf_width // 2), int(orb_y - surf_height // 2)))
             
             # Orb itself
-            pygame.draw.circle(surface, (100, 150, 255), (int(orb_x), int(orb_y)), int(orb_size * 1.2))
-            pygame.draw.circle(surface, (200, 230, 255), (int(orb_x), int(orb_y)), int(orb_size))
+            pygame.draw.circle(surface, (100, 150, 255), (int(orb_x), int(orb_y)), max(1, int(orb_size * 1.2)))
+            pygame.draw.circle(surface, (200, 230, 255), (int(orb_x), int(orb_y)), max(1, int(orb_size)))
             
             # Highlight
             highlight_x = orb_x - orb_size * 0.3
@@ -295,30 +308,33 @@ class WaterTower(BaseTower):
         
         # Draw whirlpool effect when active
         if self.vortex_active:
-            whirlpool_radius = self.range * 0.6 * zoom_factor
+            whirlpool_radius = max(2, self.range * 0.6 * zoom_factor)  # Ensure minimum radius of 2
             
             # Draw spiral effect
             spiral_segments = 20
             for segment in range(1, spiral_segments):
                 segment_percent = segment / spiral_segments
-                radius = whirlpool_radius * segment_percent
+                radius = max(2, whirlpool_radius * segment_percent)  # Ensure minimum radius of 2
                 alpha = int(150 * (1 - segment_percent))
                 
-                spiral_surf = pygame.Surface((int(radius * 2), int(radius * 2)), pygame.SRCALPHA)
+                spiral_surf_size = max(4, int(radius * 2))  # Ensure minimum size of 4
+                # Use safe surface size
+                surf_width, surf_height = self.get_safe_surface_size(spiral_surf_size, spiral_surf_size, 4)
+                spiral_surf = pygame.Surface((surf_width, surf_height), pygame.SRCALPHA)
                 
                 start_angle = math.radians(self.whirlpool_rotation)
                 end_angle = math.radians(self.whirlpool_rotation + 270 * segment_percent)
                 
                 # Draw arc
                 pygame.draw.arc(spiral_surf, (100, 150, 255, alpha), 
-                              (0, 0, int(radius * 2), int(radius * 2)), 
+                              (0, 0, surf_width, surf_height), 
                               start_angle, end_angle, 
                               max(1, int(3 * zoom_factor * segment_percent)))
                 
-                surface.blit(spiral_surf, (int(screen_pos.x - radius), int(screen_pos.y - radius)))
+                surface.blit(spiral_surf, (int(screen_pos.x - surf_width // 2), int(screen_pos.y - surf_height // 2)))
             
             # Draw center of whirlpool
-            center_radius = whirlpool_radius * 0.15
+            center_radius = max(1, whirlpool_radius * 0.15)  # Ensure minimum radius of 1
             pygame.draw.circle(surface, (50, 100, 200, 150), 
                              (int(screen_pos.x), int(screen_pos.y)), 
                              int(center_radius)) 

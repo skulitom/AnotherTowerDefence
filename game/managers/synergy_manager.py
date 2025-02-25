@@ -160,12 +160,12 @@ class SynergyManager:
                 )
                 
                 # Add particle effect
-                self.game.particle_system.add_particle(
-                    particle_pos.x, particle_pos.y,
-                    random.uniform(-10, 10), random.uniform(-10, 10),
-                    synergy["color"], 
-                    random.uniform(0.5, 1.5), 
-                    size=random.randint(3, 6)
+                self.game.particles.add_particle_params(
+                    Vector2(particle_pos.x, particle_pos.y),
+                    synergy["color"],
+                    (random.uniform(-10, 10), random.uniform(-10, 10)),
+                    random.randint(3, 6),
+                    random.uniform(0.5, 1.5)
                 )
             
             # Apply synergy effects
@@ -191,9 +191,12 @@ class SynergyManager:
                     damage = synergy["data"]["damage"]
                     enemy.take_damage(damage, "energy")
                     # Visual feedback
-                    self.game.particle_system.add_particle(
-                        enemy.pos.x, enemy.pos.y,
-                        0, 0, synergy["color"], 0.3, size=10
+                    self.game.particles.add_particle_params(
+                        Vector2(enemy.pos.x, enemy.pos.y),
+                        synergy["color"],
+                        (0, 0),
+                        10,
+                        0.3
                     )
         
         elif effect_type == "super_slow":
@@ -241,7 +244,7 @@ class SynergyManager:
         for synergy_key, synergy in self.active_synergies.items():
             # Get screen position
             screen_pos = camera.world_to_screen(synergy["position"])
-            screen_radius = camera.scale * synergy["radius"]
+            screen_radius = camera.zoom * synergy["radius"]
             
             # Draw circle with pulsating alpha
             alpha = 30 + 15 * math.sin(synergy["active_time"] * 2)

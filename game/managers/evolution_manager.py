@@ -427,12 +427,12 @@ class EvolutionManager:
                     enemy.take_damage(data["impact_damage"], "fire")
                     
                     # Visual effect
-                    self.game.particle_system.add_particle(
-                        enemy.pos.x, enemy.pos.y,
-                        0, 0,
+                    self.game.particles.add_particle_params(
+                        Vector2(enemy.pos.x, enemy.pos.y),
                         tower.color,
-                        0.3,
-                        size=5
+                        (0, 0),
+                        5,
+                        0.3
                     )
         
         elif special == "multishot" and target and not projectile:
