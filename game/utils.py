@@ -34,6 +34,14 @@ class Camera:
         # gameplay_area is a tuple (left, top, right, bottom)
         self.boundaries = gameplay_area
         
+    def update_screen_size(self, width, height, gameplay_area=None):
+        """Update camera dimensions when screen is resized"""
+        self.width = width
+        self.height = height
+        if gameplay_area:
+            self.boundaries = gameplay_area
+        self.enforce_boundaries()
+        
     def apply(self, x, y):
         """Convert world coordinates to screen coordinates"""
         screen_x = (x - self.x) * self.zoom + self.width / 2
@@ -56,6 +64,7 @@ class Camera:
         
     def start_drag(self, screen_x, screen_y):
         """Start camera drag from screen coordinates"""
+        # Store the initial screen coordinates for drag
         self.drag_start = (screen_x, screen_y)
         
     def update_drag(self, screen_x, screen_y):
@@ -87,10 +96,11 @@ class Camera:
                 if self.boundaries[3] is not None and new_y + half_height > self.boundaries[3]:
                     new_y = self.boundaries[3] - half_height
             
+            # Update the camera position
             self.x = new_x
             self.y = new_y
             
-            # Update drag start position
+            # Update drag start position to current position for smooth continuous dragging
             self.drag_start = (screen_x, screen_y)
             
     def end_drag(self):

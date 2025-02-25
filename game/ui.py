@@ -21,8 +21,8 @@ class Button:
         self.font = pygame.font.SysFont(None, font_size)
         self.pressed = False
         self.press_time = 0
-        self.shadow_offset = 3
-        self.border_radius = 8
+        self.shadow_offset = 2  # Reduced shadow for sleeker look
+        self.border_radius = 6  # Slightly smaller radius for modern look
         
     def draw(self, surface):
         # Draw button shadow
@@ -30,23 +30,23 @@ class Button:
             shadow_rect = pygame.Rect(self.rect.x + self.shadow_offset, 
                                      self.rect.y + self.shadow_offset,
                                      self.rect.width, self.rect.height)
-            pygame.draw.rect(surface, (30, 30, 30, 150), shadow_rect, border_radius=self.border_radius)
+            pygame.draw.rect(surface, (10, 10, 15, 150), shadow_rect, border_radius=self.border_radius)
         
         # Create button surface with gradient
         button_surf = pygame.Surface((self.rect.width, self.rect.height), pygame.SRCALPHA)
         
         if not self.enabled:
-            # Disabled state - gray gradient
-            color_top = (80, 80, 80)
-            color_bottom = (60, 60, 60)
+            # Disabled state - darker gray gradient
+            color_top = (50, 50, 60)
+            color_bottom = (35, 35, 45)
         elif self.hover or self.pressed:
             # Hover state - brighter gradient
             color_top = (self.hover_color[0], self.hover_color[1], self.hover_color[2])
-            color_bottom = (max(0, self.hover_color[0]-40), max(0, self.hover_color[1]-40), max(0, self.hover_color[2]-40))
+            color_bottom = (max(0, self.hover_color[0]-30), max(0, self.hover_color[1]-30), max(0, self.hover_color[2]-30))
         else:
             # Normal state - standard gradient
             color_top = (self.color[0], self.color[1], self.color[2])
-            color_bottom = (max(0, self.color[0]-40), max(0, self.color[1]-40), max(0, self.color[2]-40))
+            color_bottom = (max(0, self.color[0]-30), max(0, self.color[1]-30), max(0, self.color[2]-30))
         
         # Draw gradient background
         for y in range(self.rect.height):
@@ -59,14 +59,14 @@ class Button:
         # Draw border with rounded corners
         pygame.draw.rect(button_surf, (0, 0, 0, 0), (0, 0, self.rect.width, self.rect.height), border_radius=self.border_radius)
         
-        # Add highlight to the top edge for 3D effect
+        # Add highlight to the top edge for subtle 3D effect
         if self.enabled and not self.pressed:
-            highlight_color = (255, 255, 255, 70)
-            pygame.draw.rect(button_surf, highlight_color, (2, 2, self.rect.width-4, 3), border_radius=self.border_radius)
+            highlight_color = (255, 255, 255, 40)  # More subtle highlight
+            pygame.draw.rect(button_surf, highlight_color, (2, 2, self.rect.width-4, 2), border_radius=self.border_radius)
         
         # Draw border
-        border_color = (255, 255, 255, 100) if self.hover and self.enabled else (120, 120, 120, 100)
-        pygame.draw.rect(button_surf, border_color, (0, 0, self.rect.width, self.rect.height), 2, border_radius=self.border_radius)
+        border_color = (180, 180, 255, 70) if self.hover and self.enabled else (80, 80, 120, 50)
+        pygame.draw.rect(button_surf, border_color, (0, 0, self.rect.width, self.rect.height), 1, border_radius=self.border_radius)
         
         # Blit button surface
         if self.pressed:
@@ -198,13 +198,20 @@ class TowerInfoPanel:
         self.create_buttons()
         
     def create_buttons(self):
-        button_height = 40
+        # Calculate button sizes based on panel dimensions
+        button_height = min(40, int(self.rect.height * 0.09))  # Make button height proportional
         button_width = self.rect.width - 20
         
-        # Create upgrade buttons
+        # Calculate available space for buttons
+        content_height = self.rect.height - 160  # Space after tower info
+        buttons_needed = 5  # 4 upgrade buttons + sell button
+        spacing = max(5, min(10, (content_height - buttons_needed * button_height) // (buttons_needed + 1)))
+        
+        # Create upgrade buttons with dynamic positioning
         self.upgrade_buttons = []
         for i, upgrade_type in enumerate(["damage", "range", "speed", "special"]):
-            y_pos = self.rect.y + 160 + i * (button_height + 10)
+            # Position based on available space
+            y_pos = self.rect.y + 160 + spacing + i * (button_height + spacing)
             button_rect = pygame.Rect(self.rect.x + 10, y_pos, button_width, button_height)
             
             name = upgrade_paths[upgrade_type]["name"]
@@ -218,8 +225,13 @@ class TowerInfoPanel:
             )
             self.upgrade_buttons.append((upgrade_type, button))
         
-        # Create sell button
-        sell_rect = pygame.Rect(self.rect.x + 10, self.rect.bottom - 50, button_width, button_height)
+        # Create sell button at the bottom with appropriate spacing
+        sell_rect = pygame.Rect(
+            self.rect.x + 10, 
+            self.rect.bottom - button_height - spacing,
+            button_width, 
+            button_height
+        )
         self.sell_button = Button(
             sell_rect,
             "Sell Tower",
@@ -268,29 +280,32 @@ class TowerInfoPanel:
         # Draw panel background gradient
         for y in range(self.rect.height):
             progress = y / self.rect.height
-            r = int(50 * (1 - progress) + 30 * progress)
-            g = int(50 * (1 - progress) + 30 * progress)
-            b = int(80 * (1 - progress) + 60 * progress)
+            r = int(25 * (1 - progress) + 15 * progress)
+            g = int(25 * (1 - progress) + 15 * progress)
+            b = int(40 * (1 - progress) + 30 * progress)
             pygame.draw.line(panel_surf, (r, g, b, 230), (0, y), (self.rect.width, y))
         
         # Draw border with glow
         pygame.draw.rect(panel_surf, (0, 0, 0, 0), (0, 0, self.rect.width, self.rect.height), border_radius=self.border_radius)
-        pygame.draw.rect(panel_surf, (120, 160, 200, 150), (0, 0, self.rect.width, self.rect.height), 2, border_radius=self.border_radius)
+        pygame.draw.rect(panel_surf, (80, 100, 180, 100), (0, 0, self.rect.width, self.rect.height), 1, border_radius=self.border_radius)
         
         # Add top highlight
-        pygame.draw.line(panel_surf, (200, 220, 255, 100), (5, 2), (self.rect.width-5, 2))
+        pygame.draw.line(panel_surf, (120, 140, 200, 60), (5, 2), (self.rect.width-5, 2))
         
         # Blit panel surface
         surface.blit(panel_surf, self.rect.topleft)
         
+        # Calculate proportional sizing
+        header_height = int(self.rect.height * 0.09)  # ~9% of panel height for header
+        icon_size = min(64, int(self.rect.height * 0.13))  # Scale icon based on panel height
+        
         # Draw header strip
-        header_height = 40
         header_surf = pygame.Surface((self.rect.width, header_height), pygame.SRCALPHA)
         for y in range(header_height):
             progress = y / header_height
-            r = int(80 * (1 - progress) + 50 * progress)
-            g = int(80 * (1 - progress) + 50 * progress)
-            b = int(120 * (1 - progress) + 80 * progress)
+            r = int(40 * (1 - progress) + 25 * progress)
+            g = int(40 * (1 - progress) + 25 * progress)
+            b = int(70 * (1 - progress) + 45 * progress)
             pygame.draw.line(header_surf, (r, g, b), (0, y), (self.rect.width, y))
         # Round corners only on top
         pygame.draw.rect(header_surf, (0, 0, 0, 0), (0, 0, self.rect.width, header_height), border_radius=self.border_radius)
@@ -304,35 +319,41 @@ class TowerInfoPanel:
         surface.blit(shadow_surf, (title_rect.x+1, title_rect.y+1))
         surface.blit(title_surf, title_rect)
         
-        # Draw tower info
+        # Draw tower info with better spacing
         tower_img = assets["towers"].get(self.tower.tower_type)
+        icon_y_pos = title_rect.bottom + 5  # Position icon closer to title
+        
         if tower_img:
-            img = pygame.transform.scale(tower_img, (64, 64))
-            img_rect = img.get_rect(midtop=(self.rect.centerx, title_rect.bottom + 10))
+            img = pygame.transform.scale(tower_img, (icon_size, icon_size))
+            img_rect = img.get_rect(midtop=(self.rect.centerx, icon_y_pos))
             # Add glow behind tower image
-            glow_surf = pygame.Surface((80, 80), pygame.SRCALPHA)
-            pygame.draw.circle(glow_surf, (*self.tower.color, 90), (40, 40), 32)
-            surface.blit(glow_surf, (img_rect.centerx-40, img_rect.centery-40))
+            glow_surf = pygame.Surface((icon_size + 16, icon_size + 16), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surf, (*self.tower.color, 90), (glow_surf.get_width()//2, glow_surf.get_height()//2), icon_size//2)
+            surface.blit(glow_surf, (img_rect.centerx - glow_surf.get_width()//2, img_rect.centery - glow_surf.get_height()//2))
             surface.blit(img, img_rect)
         else:
-            icon = create_element_icon(self.tower.tower_type, 64)
-            icon_rect = icon.get_rect(midtop=(self.rect.centerx, title_rect.bottom + 10))
+            icon = create_element_icon(self.tower.tower_type, icon_size)
+            icon_rect = icon.get_rect(midtop=(self.rect.centerx, icon_y_pos))
             # Add glow behind tower icon
-            glow_surf = pygame.Surface((80, 80), pygame.SRCALPHA)
-            pygame.draw.circle(glow_surf, (*self.tower.color, 90), (40, 40), 32)
-            surface.blit(glow_surf, (icon_rect.centerx-40, icon_rect.centery-40))
+            glow_surf = pygame.Surface((icon_size + 16, icon_size + 16), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surf, (*self.tower.color, 90), (glow_surf.get_width()//2, glow_surf.get_height()//2), icon_size//2)
+            surface.blit(glow_surf, (icon_rect.centerx - glow_surf.get_width()//2, icon_rect.centery - glow_surf.get_height()//2))
             surface.blit(icon, icon_rect)
         
-        # Draw tower stats with improved styling
-        stats_y = title_rect.bottom + 80
+        # Calculate stats position to be closer to icon
+        stats_y = icon_y_pos + icon_size + 5  # Position stat box right after icon
         stat_x = self.rect.x + 20
         
-        # Draw stat box
-        stat_box = pygame.Rect(stat_x-10, stats_y-5, self.rect.width-20, 75)
+        # Draw stat box with compact height
+        stat_box_height = int(self.rect.height * 0.12)  # More compact stat box
+        stat_box = pygame.Rect(stat_x-10, stats_y-5, self.rect.width-20, stat_box_height)
         stat_surf = pygame.Surface((stat_box.width, stat_box.height), pygame.SRCALPHA)
         stat_surf.fill((0, 0, 0, 40))
         pygame.draw.rect(stat_surf, (100, 100, 150, 80), (0, 0, stat_box.width, stat_box.height), 1, border_radius=5)
         surface.blit(stat_surf, stat_box.topleft)
+        
+        # Space stats vertically more efficiently
+        line_height = self.font_stat.get_height()
         
         # Draw damage stat
         damage_text = f"Damage: {self.tower.current_damage:.1f}"
@@ -347,25 +368,32 @@ class TowerInfoPanel:
         # Draw range stat
         range_text = f"Range: {self.tower.range:.0f}"
         range_surf = self.font_stat.render(range_text, True, (100, 200, 255))
-        surface.blit(range_surf, (stat_x, stats_y + 20))
+        surface.blit(range_surf, (stat_x, stats_y + line_height))
         
         # Draw speed stat
         speed_text = f"Attack Speed: {1/self.tower.cooldown:.1f}/s"
         speed_surf = self.font_stat.render(speed_text, True, (200, 150, 255))
-        surface.blit(speed_surf, (stat_x, stats_y + 40))
+        surface.blit(speed_surf, (stat_x, stats_y + line_height * 2))
         
-        # Draw special ability description with style
+        # Draw special ability description with style (if it exists and fits)
         if self.tower.special_ability:
             description = tower_types[self.tower.tower_type].get("description", "")
-            desc_box = pygame.Rect(stat_x-10, stats_y+75, self.rect.width-20, 30)
-            desc_surf = pygame.Surface((desc_box.width, desc_box.height), pygame.SRCALPHA)
-            desc_surf.fill((100, 100, 100, 30))
-            pygame.draw.rect(desc_surf, (150, 150, 150, 80), (0, 0, desc_box.width, desc_box.height), 1, border_radius=5)
-            surface.blit(desc_surf, desc_box.topleft)
-            
-            ability_surf = self.font_description.render(description, True, (220, 220, 220))
-            ability_rect = ability_surf.get_rect(center=(self.rect.centerx, stats_y + 90))
-            surface.blit(ability_surf, ability_rect)
+            if description:
+                # Position description box right after stats
+                desc_y = stats_y + line_height * 3 + 5
+                desc_box = pygame.Rect(stat_x-10, desc_y, self.rect.width-20, line_height + 10)
+                
+                # Check if description box would fit before upgrade buttons
+                first_button_y = self.upgrade_buttons[0][1].rect.y if self.upgrade_buttons else self.rect.bottom
+                if desc_box.bottom < first_button_y - 10:  # Only draw if it fits
+                    desc_surf = pygame.Surface((desc_box.width, desc_box.height), pygame.SRCALPHA)
+                    desc_surf.fill((100, 100, 100, 30))
+                    pygame.draw.rect(desc_surf, (150, 150, 150, 80), (0, 0, desc_box.width, desc_box.height), 1, border_radius=5)
+                    surface.blit(desc_surf, desc_box.topleft)
+                    
+                    ability_surf = self.font_description.render(description, True, (220, 220, 220))
+                    ability_rect = ability_surf.get_rect(center=(self.rect.centerx, desc_y + desc_box.height/2))
+                    surface.blit(ability_surf, ability_rect)
         
         # Draw upgrade buttons
         for _, button in self.upgrade_buttons:
@@ -406,18 +434,27 @@ class WavePanel:
         self.create_buttons()
         
     def create_buttons(self):
+        # Calculate button dimensions based on panel size
+        button_height = min(35, max(30, int(self.rect.height * 0.23)))
+        button_width = self.rect.width - 20
+        
+        # Position button at the bottom of the panel with proper padding
+        bottom_padding = min(15, max(10, int(self.rect.height * 0.1)))
+        
         button_rect = pygame.Rect(
-            self.rect.x + 20, 
-            self.rect.bottom - 45, 
-            self.rect.width - 40, 
-            35
+            self.rect.x + 10, 
+            self.rect.bottom - button_height - bottom_padding, 
+            button_width, 
+            button_height
         )
+        
         self.next_wave_button = Button(
             button_rect,
             "Start Wave",
             color=(60, 180, 60),
             hover_color=(80, 220, 80),
-            tooltip="Start the next wave of enemies"
+            tooltip="Start the next wave of enemies",
+            font_size=min(20, max(16, int(button_height * 0.6)))
         )
     
     def update(self, current_wave, enemies_remaining, wave_progress=0.0, is_wave_active=False):
@@ -435,18 +472,18 @@ class WavePanel:
     
     def draw(self, surface):
         # Draw panel background
-        draw_gradient_rect(surface, self.rect, (40, 70, 40), (60, 100, 60))
-        pygame.draw.rect(surface, (200, 200, 200), self.rect, 2)
+        draw_gradient_rect(surface, self.rect, (20, 35, 20), (30, 50, 30))
+        pygame.draw.rect(surface, (80, 120, 80), self.rect, 1)
         
         # Draw wave information
         title_text = f"Wave {self.current_wave}"
-        title_surf = self.font_title.render(title_text, True, (255, 255, 255))
+        title_surf = self.font_title.render(title_text, True, (220, 255, 220))
         title_rect = title_surf.get_rect(midtop=(self.rect.centerx, self.rect.y + 10))
         surface.blit(title_surf, title_rect)
         
         # Draw enemies remaining
         enemies_text = f"Enemies Remaining: {self.enemies_remaining}"
-        enemies_surf = self.font_info.render(enemies_text, True, (255, 255, 255))
+        enemies_surf = self.font_info.render(enemies_text, True, (220, 220, 220))
         enemies_rect = enemies_surf.get_rect(midtop=(self.rect.centerx, title_rect.bottom + 10))
         surface.blit(enemies_surf, enemies_rect)
         
@@ -458,11 +495,11 @@ class WavePanel:
                 self.rect.width - 40,
                 15
             )
-            pygame.draw.rect(surface, (80, 80, 80), progress_rect)
+            pygame.draw.rect(surface, (40, 40, 40), progress_rect)
             fill_rect = progress_rect.copy()
             fill_rect.width = int(progress_rect.width * self.wave_progress)
-            pygame.draw.rect(surface, (100, 200, 100), fill_rect)
-            pygame.draw.rect(surface, (200, 200, 200), progress_rect, 1)
+            pygame.draw.rect(surface, (80, 180, 80), fill_rect)
+            pygame.draw.rect(surface, (100, 100, 100), progress_rect, 1)
         
         # Draw next wave button
         self.next_wave_button.draw(surface)
@@ -493,12 +530,12 @@ class StatusPanel:
     
     def draw(self, surface, assets):
         # Draw panel background
-        draw_gradient_rect(surface, self.rect, (40, 40, 70), (60, 60, 100))
-        pygame.draw.rect(surface, (200, 200, 200), self.rect, 2)
+        draw_gradient_rect(surface, self.rect, (20, 20, 35), (30, 30, 50))
+        pygame.draw.rect(surface, (80, 80, 120), self.rect, 1)
         
         # Draw resources
         title_text = "Resources"
-        title_surf = self.font_title.render(title_text, True, (255, 255, 255))
+        title_surf = self.font_title.render(title_text, True, (220, 220, 255))
         title_rect = title_surf.get_rect(midtop=(self.rect.centerx, self.rect.y + 10))
         surface.blit(title_surf, title_rect)
         
@@ -560,7 +597,28 @@ class TowerSelectionPanel:
         self.create_buttons()
         
     def create_buttons(self):
-        button_height = 35
+        # Calculate optimal button sizes based on panel dimensions
+        num_towers = 7  # Fire, Water, Air, Earth, Darkness, Light, Life
+        
+        # Calculate available space after accounting for title
+        title_height = 30
+        available_height = self.rect.height - title_height - 20  # 20px padding at bottom
+        
+        # Calculate optimal button height and spacing
+        max_button_height = 40
+        min_button_height = 25
+        ideal_total_height = num_towers * max_button_height + (num_towers - 1) * 10  # 10px spacing
+        
+        if ideal_total_height <= available_height:
+            # Can use max button height with plenty of spacing
+            button_height = max_button_height
+            button_spacing = min(12, (available_height - (num_towers * button_height)) / (num_towers - 1))
+        else:
+            # Need to adjust button height and spacing
+            button_height = min(max_button_height, max(min_button_height, available_height / (num_towers * 1.2)))
+            button_spacing = min(8, (available_height - (num_towers * button_height)) / (num_towers - 1))
+            button_spacing = max(3, button_spacing)  # Ensure minimum spacing
+            
         button_width = self.rect.width - 20
         
         # Create tower selection buttons
@@ -568,7 +626,7 @@ class TowerSelectionPanel:
         tower_order = ["Fire", "Water", "Air", "Earth", "Darkness", "Light", "Life"]
         
         for i, tower_type in enumerate(tower_order):
-            y_pos = self.rect.y + 40 + i * (button_height + 8)
+            y_pos = self.rect.y + title_height + 10 + i * (button_height + button_spacing)
             button_rect = pygame.Rect(self.rect.x + 10, y_pos, button_width, button_height)
             
             cost = tower_types[tower_type]["cost"]
@@ -578,7 +636,8 @@ class TowerSelectionPanel:
                 color=(60, 60, 100),
                 hover_color=(80, 80, 150),
                 tooltip=tower_types[tower_type].get("description", ""),
-                icon=tower_type
+                icon=tower_type,
+                font_size=min(18, int(button_height * 0.45))  # Scale font to button size
             )
             self.tower_buttons.append((tower_type, button))
     
@@ -601,12 +660,12 @@ class TowerSelectionPanel:
     
     def draw(self, surface):
         # Draw panel background
-        draw_gradient_rect(surface, self.rect, (40, 40, 70), (60, 60, 100))
-        pygame.draw.rect(surface, (200, 200, 200), self.rect, 2)
+        draw_gradient_rect(surface, self.rect, (20, 20, 35), (30, 30, 50))
+        pygame.draw.rect(surface, (80, 80, 120), self.rect, 1)
         
         # Draw panel title
         title_text = "Tower Selection"
-        title_surf = self.font.render(title_text, True, (255, 255, 255))
+        title_surf = self.font.render(title_text, True, (220, 220, 255))
         title_rect = title_surf.get_rect(midtop=(self.rect.centerx, self.rect.y + 10))
         surface.blit(title_surf, title_rect)
         
@@ -630,38 +689,136 @@ class GameUI:
         self.screen_width = screen_width
         self.screen_height = screen_height
         
-        # Create various panels
-        sidebar_width = 260
+        # Calculate optimal panel sizes
+        self.calculate_panel_dimensions()
         
-        # Right sidebar for tower info
-        info_panel_height = 400
-        self.tower_info_panel = TowerInfoPanel(
-            pygame.Rect(screen_width - sidebar_width, 10, sidebar_width - 10, info_panel_height)
-        )
-        
-        # Wave info panel below tower info
-        wave_panel_height = 150
-        self.wave_panel = WavePanel(
-            pygame.Rect(screen_width - sidebar_width, info_panel_height + 20, 
-                       sidebar_width - 10, wave_panel_height)
-        )
-        
-        # Left sidebar top for status
-        status_panel_height = 230
-        self.status_panel = StatusPanel(
-            pygame.Rect(10, 10, sidebar_width - 10, status_panel_height)
-        )
-        
-        # Left sidebar bottom for tower selection
-        tower_selection_height = 320
-        self.tower_selection_panel = TowerSelectionPanel(
-            pygame.Rect(10, status_panel_height + 20, sidebar_width - 10, tower_selection_height)
-        )
+        # Create panels with the calculated dimensions
+        self.create_panels()
         
         # Tower tooltip info for hover
         self.tooltip_font = pygame.font.SysFont(None, 18)
         self.hover_tower = None
+    
+    def calculate_panel_dimensions(self):
+        """Calculate optimal panel dimensions based on screen size"""
+        # Calculate sidebar width proportionally
+        self.sidebar_width = int(self.screen_width * 0.185)  # ~260px at 1400px width
         
+        # Calculate panel spacing
+        self.panel_spacing = int(self.screen_height * 0.022)  # ~20px at 900px height
+        
+        # Calculate max heights with spacing
+        usable_height = self.screen_height - (3 * self.panel_spacing)  # Top, middle, bottom spacing
+        
+        # Distribute available height proportionally
+        # Right side (tower info + wave panel)
+        self.info_panel_height = int(usable_height * 0.70)  # 70% for tower info
+        self.wave_panel_height = int(usable_height * 0.25)  # 25% for wave info
+        
+        # Left side (status + tower selection)
+        self.status_panel_height = int(usable_height * 0.38)  # 38% for status
+        self.tower_selection_height = int(usable_height * 0.57)  # 57% for tower selection
+        
+        # Ensure the heights don't exceed the available space
+        total_right = self.info_panel_height + self.wave_panel_height + self.panel_spacing
+        total_left = self.status_panel_height + self.tower_selection_height + self.panel_spacing
+        
+        if total_right > usable_height:
+            # Scale down proportionally
+            scale = usable_height / total_right
+            self.info_panel_height = int(self.info_panel_height * scale)
+            self.wave_panel_height = int(self.wave_panel_height * scale)
+            
+        if total_left > usable_height:
+            # Scale down proportionally
+            scale = usable_height / total_left
+            self.status_panel_height = int(self.status_panel_height * scale)
+            self.tower_selection_height = int(self.tower_selection_height * scale)
+    
+    def create_panels(self):
+        """Create UI panels with calculated dimensions"""
+        # Right sidebar for tower info
+        self.tower_info_panel = TowerInfoPanel(
+            pygame.Rect(
+                self.screen_width - self.sidebar_width, 
+                self.panel_spacing, 
+                self.sidebar_width - self.panel_spacing, 
+                self.info_panel_height
+            )
+        )
+        
+        # Wave info panel below tower info
+        self.wave_panel = WavePanel(
+            pygame.Rect(
+                self.screen_width - self.sidebar_width, 
+                self.panel_spacing * 2 + self.info_panel_height, 
+                self.sidebar_width - self.panel_spacing, 
+                self.wave_panel_height
+            )
+        )
+        
+        # Left sidebar top for status
+        self.status_panel = StatusPanel(
+            pygame.Rect(
+                self.panel_spacing, 
+                self.panel_spacing, 
+                self.sidebar_width - self.panel_spacing, 
+                self.status_panel_height
+            )
+        )
+        
+        # Left sidebar bottom for tower selection
+        self.tower_selection_panel = TowerSelectionPanel(
+            pygame.Rect(
+                self.panel_spacing, 
+                self.panel_spacing * 2 + self.status_panel_height, 
+                self.sidebar_width - self.panel_spacing, 
+                self.tower_selection_height
+            )
+        )
+    
+    def update_screen_size(self, screen_width, screen_height):
+        """Update UI layout when screen is resized"""
+        self.screen_width = screen_width
+        self.screen_height = screen_height
+        
+        # Recalculate panel dimensions for new screen size
+        self.calculate_panel_dimensions()
+        
+        # Update panel positions and sizes
+        self.tower_info_panel.rect = pygame.Rect(
+            self.screen_width - self.sidebar_width, 
+            self.panel_spacing, 
+            self.sidebar_width - self.panel_spacing, 
+            self.info_panel_height
+        )
+        
+        self.wave_panel.rect = pygame.Rect(
+            self.screen_width - self.sidebar_width, 
+            self.panel_spacing * 2 + self.info_panel_height,
+            self.sidebar_width - self.panel_spacing, 
+            self.wave_panel_height
+        )
+        
+        self.status_panel.rect = pygame.Rect(
+            self.panel_spacing, 
+            self.panel_spacing, 
+            self.sidebar_width - self.panel_spacing, 
+            self.status_panel_height
+        )
+        
+        self.tower_selection_panel.rect = pygame.Rect(
+            self.panel_spacing, 
+            self.panel_spacing * 2 + self.status_panel_height,
+            self.sidebar_width - self.panel_spacing, 
+            self.tower_selection_height
+        )
+        
+        # Update buttons in each panel
+        self.tower_info_panel.create_buttons()
+        self.wave_panel.create_buttons()
+        self.tower_selection_panel.create_buttons()
+    
     def draw(self, surface, game_state, assets):
         # Update panels with current game state
         self.tower_info_panel.set_tower(game_state.get("selected_tower"), game_state.get("money", 0))
@@ -723,8 +880,8 @@ class GameUI:
         
         # Draw tooltip background
         tooltip_rect = pygame.Rect(tooltip_x, tooltip_y, tooltip_width, tooltip_height)
-        pygame.draw.rect(surface, (40, 40, 60, 230), tooltip_rect)
-        pygame.draw.rect(surface, (200, 200, 200), tooltip_rect, 1)
+        pygame.draw.rect(surface, (25, 25, 35, 230), tooltip_rect)
+        pygame.draw.rect(surface, (80, 80, 120), tooltip_rect, 1)
         
         # Draw tooltip text
         for i, line in enumerate(lines):
