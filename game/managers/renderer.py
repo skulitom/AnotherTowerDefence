@@ -11,8 +11,12 @@ class Renderer:
         """Initialize the renderer"""
         self.game = game_manager
     
-    def render(self):
+    def render(self, surface=None):
         """Render the game state"""
+        # If no surface provided, use the game's screen
+        if surface is None:
+            surface = self.game.screen
+            
         # Draw background and grid
         self.draw_background()
         self.draw_grid()

@@ -139,6 +139,12 @@ class GameUI:
         self.wave_panel.create_buttons()
         self.tower_selection_panel.create_buttons()
     
+    def update(self, dt, game_state=None):
+        """Update UI elements"""
+        # Nothing to animate or update in real-time yet
+        # This method exists for compatibility with the game update cycle
+        pass
+    
     def draw(self, surface, game_state, assets):
         # Update panels with current game state
         self.tower_info_panel.set_tower(game_state.get("selected_tower"), game_state.get("money", 0))

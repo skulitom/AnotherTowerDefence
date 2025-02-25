@@ -65,6 +65,17 @@ class InputManager:
             self.game.camera.end_drag()
             self.game.is_panning = False
     
+    def update(self, dt):
+        """Update input state based on continuous input"""
+        # Update camera based on keyboard input
+        self.update_camera(dt)
+        
+        # Update mouse state for continuous input
+        self.update_mouse_state()
+        
+        # Update key state for continuous input
+        self.update_key_state()
+    
     def update_camera(self, dt):
         """Update camera position based on keyboard input"""
         keys = pygame.key.get_pressed()

@@ -20,6 +20,12 @@ class GameLoop:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.running = False
+                elif self.game_manager.game_over and event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        self.running = False
+                    elif event.key == pygame.K_SPACE:
+                        # Reset game state
+                        self.game_manager.reset()
                 else:
                     self.game_manager.handle_event(event)
             
@@ -30,10 +36,7 @@ class GameLoop:
             self.game_manager.render()
             pygame.display.flip()
             
-            # Check for game over
-            if self.game_manager.is_game_over():
-                self.game_manager.show_game_over()
-                self.wait_for_restart_or_exit()
+            # Check for game over (this is now handled in update_enemies)
     
     def wait_for_restart_or_exit(self):
         """Wait for player to restart or exit the game"""

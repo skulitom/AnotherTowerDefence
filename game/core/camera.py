@@ -33,6 +33,22 @@ class Camera:
         
         return (screen_x, screen_y)
     
+    def world_to_screen(self, x, y=None):
+        """Convert world coordinates to screen coordinates (alias for apply)
+        Can be called with either:
+        - world_to_screen(x, y) - separate coordinates
+        - world_to_screen((x, y)) - tuple of coordinates
+        - world_to_screen(Vector2) - pygame Vector2 object
+        """
+        # Handle Vector2 input
+        if y is None and hasattr(x, 'x') and hasattr(x, 'y'):
+            return self.apply(x.x, x.y)
+        # Handle tuple input
+        elif y is None and isinstance(x, tuple) and len(x) == 2:
+            return self.apply(x[0], x[1])
+        # Handle separate x, y coordinates
+        return self.apply(x, y)
+    
     def unapply(self, screen_x, screen_y):
         """Convert screen coordinates to world coordinates"""
         screen_center_x = self.screen_width / 2
@@ -43,6 +59,22 @@ class Camera:
         y = (screen_y - screen_center_y) / self.zoom + self.y
         
         return (x, y)
+    
+    def screen_to_world(self, screen_x, screen_y=None):
+        """Convert screen coordinates to world coordinates (alias for unapply)
+        Can be called with either:
+        - screen_to_world(x, y) - separate coordinates
+        - screen_to_world((x, y)) - tuple of coordinates
+        - screen_to_world(Vector2) - pygame Vector2 object
+        """
+        # Handle Vector2 input
+        if screen_y is None and hasattr(screen_x, 'x') and hasattr(screen_x, 'y'):
+            return self.unapply(screen_x.x, screen_x.y)
+        # Handle tuple input
+        elif screen_y is None and isinstance(screen_x, tuple) and len(screen_x) == 2:
+            return self.unapply(screen_x[0], screen_x[1])
+        # Handle separate x, y coordinates
+        return self.unapply(screen_x, screen_y)
     
     def move(self, dx, dy):
         """Move the camera by the given amount"""
