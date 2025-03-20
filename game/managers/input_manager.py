@@ -2,6 +2,9 @@
 Input Manager - Handles all user input and controls
 """
 import pygame
+import os
+import tkinter as tk
+from tkinter import filedialog
 from pygame import Vector2
 
 from game.ui import FloatingText
@@ -13,6 +16,8 @@ class InputManager:
         self.game = game_manager
         # Key states
         self.keys_pressed = {}
+        # Hide Tkinter root window
+        self.tk_root = None
     
     def handle_event(self, event):
         """Process a pygame event"""
@@ -228,7 +233,75 @@ class InputManager:
                     size=24,
                     lifetime=2.0
                 )
+        elif event.key == pygame.K_F5:
+            # Save game (F5)
+            self.game.save_menu.show("save")
+            return True
+        elif event.key == pygame.K_F9:
+            # Load game (F9)
+            self.game.save_menu.show("load")
+            return True
+        elif event.key == pygame.K_F2:
+            # New game (F2)
+            self.game.reset()
+            self.game.ui.add_floating_text(
+                self.game.screen_width * 0.5,
+                50,
+                "New Game Started",
+                (100, 255, 100),
+                size=24,
+                lifetime=2.0
+            )
+            return True
         return True
+    
+    def open_load_dialog(self):
+        """Open a file dialog to select a save file to load"""
+        # Get list of save files
+        save_files = self.game.get_save_files()
+        
+        if not save_files:
+            self.game.floating_texts.append(
+                FloatingText(
+                    "No save files found!",
+                    (self.game.screen_width // 2, self.game.screen_height // 2 - 50),
+                    (255, 100, 100),
+                    24,
+                    duration=3.0
+                )
+            )
+            return False
+            
+        # Initialize tkinter for file dialog
+        # We need to temporarily pause the game and switch to windowed mode
+        was_fullscreen = self.game.fullscreen
+        if was_fullscreen:
+            pygame.display.set_mode((self.game.screen_width, self.game.screen_height), pygame.RESIZABLE)
+            self.game.fullscreen = False
+        
+        # Create hidden tkinter root
+        if self.tk_root is None:
+            self.tk_root = tk.Tk()
+            self.tk_root.withdraw()  # Hide the root window
+        
+        # Open file dialog
+        file_path = filedialog.askopenfilename(
+            initialdir=self.game.saves_dir,
+            title="Load Saved Game",
+            filetypes=(("JSON files", "*.json"), ("All files", "*.*"))
+        )
+        
+        # Restore fullscreen if needed
+        if was_fullscreen:
+            pygame.display.set_mode((self.game.screen_width, self.game.screen_height), pygame.FULLSCREEN)
+            self.game.fullscreen = True
+        
+        # Load the selected file
+        if file_path:
+            self.game.load_game(file_path)
+            return True
+            
+        return False
     
     def handle_mouse_down_event(self, event):
         """Handle mouse button down events"""
@@ -313,6 +386,9 @@ class InputManager:
                 size=24,
                 lifetime=2.0
             )
+            return True
+        elif ui_result["action"] == "open_save_menu":
+            self.game.save_menu.show("save")
             return True
             
         return True  # Default to handled

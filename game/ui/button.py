@@ -192,7 +192,12 @@ class Button:
     
     def update(self, mouse_pos, mouse_pressed):
         old_hover = self.hover
-        self.hover = self.rect.collidepoint(mouse_pos)
+        collide_result = self.rect.collidepoint(mouse_pos)
+        self.hover = collide_result
+        
+        # For debugging click issues
+        if mouse_pressed:
+            print(f"Button '{self.text}' rect: {self.rect}, mouse_pos: {mouse_pos}, collision: {collide_result}")
         
         # Clear cache if appearance changes
         if old_hover != self.hover:
@@ -202,6 +207,7 @@ class Button:
             self.pressed = True
             self.press_time = pygame.time.get_ticks()
             self._cached_surfaces = {}  # Clear cache when state changes
+            print(f"Button '{self.text}' pressed!")
             return True
         
         # Reset pressed state after animation time

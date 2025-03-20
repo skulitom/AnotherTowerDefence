@@ -2,7 +2,7 @@
 Wave Manager - Handles enemy wave generation and progression
 """
 import random
-from game.settings import wave_templates
+from game.settings import wave_templates, enemy_types
 from game.enemy import Enemy
 from game.ui import FloatingText
 
@@ -23,12 +23,18 @@ class WaveManager:
         # Clear any remaining enemies from previous wave's queue
         self.current_wave_enemies.clear()
         
-        # Get wave configuration
-        wave_index = min(self.game.wave - 1, len(wave_templates) - 1)
-        self.current_wave_config = wave_templates[wave_index]
+        # Do NOT generate a new path for each wave
+        # Only update the paths for any existing enemies
+        for enemy in self.game.enemies:
+            enemy.path = self.game.path_points
         
-        # Calculate wave scaling factor for games that go beyond predefined templates
-        scaling = 1.0 + max(0, self.game.wave - len(wave_templates)) * 0.2
+        # Get wave configuration
+        if self.game.wave <= len(wave_templates):
+            # Use predefined wave template
+            self.current_wave_config = wave_templates[self.game.wave - 1]
+        else:
+            # Generate procedural wave for infinite levels
+            self.current_wave_config = self.generate_procedural_wave(self.game.wave)
         
         # Create enemy list
         for enemy_type, count in self.current_wave_config["enemies"]:
@@ -44,6 +50,75 @@ class WaveManager:
         
         # Reset spawn timer
         self.next_enemy_spawn = 0
+    
+    def generate_procedural_wave(self, wave_level):
+        """
+        Generate a procedural wave configuration for waves beyond predefined templates
+        
+        Args:
+            wave_level: Current wave level
+            
+        Returns:
+            Wave configuration dict similar to templates
+        """
+        # Base difficulty scaling factor
+        difficulty = wave_level / 10
+        
+        # Spawn delay decreases with wave level (faster spawns)
+        spawn_delay = max(0.3, 1.5 - (wave_level * 0.05))
+        
+        # Reward increases with wave level
+        reward_bonus = 50 + wave_level * 50
+        
+        # Calculate total number of enemies based on wave level
+        total_enemies = 8 + int(wave_level * 1.5)
+        
+        # Available enemy types based on wave progression
+        available_enemies = ["Normal", "Fast", "Tank"]
+        
+        if wave_level >= 5:
+            available_enemies.append("Healing")
+        
+        if wave_level >= 7:
+            available_enemies.append("Invisible")
+        
+        # Add boss every 10 waves
+        has_boss = wave_level % 10 == 0
+        
+        # Generate enemy distribution
+        enemies = []
+        
+        # Add boss first if this is a boss wave
+        if has_boss:
+            boss_count = 1 + (wave_level // 30)  # More bosses at higher levels
+            enemies.append(("Boss", boss_count))
+            total_enemies -= boss_count * 3  # Bosses count as multiple enemies for balancing
+        
+        # Distribute remaining enemies among available types
+        remaining = total_enemies
+        while remaining > 0:
+            enemy_type = random.choice(available_enemies)
+            
+            # Calculate appropriate count based on enemy type
+            if enemy_type == "Tank":
+                count = max(1, int(remaining * 0.2))
+            elif enemy_type == "Healing" or enemy_type == "Invisible":
+                count = max(1, int(remaining * 0.15))
+            else:
+                count = max(1, int(remaining * 0.3))
+            
+            # Ensure we don't exceed remaining count
+            count = min(count, remaining)
+            
+            enemies.append((enemy_type, count))
+            remaining -= count
+        
+        # Create and return the wave config
+        return {
+            "enemies": enemies,
+            "spawn_delay": spawn_delay,
+            "reward_bonus": reward_bonus
+        }
     
     def update(self, dt):
         """Update wave progression"""
@@ -74,7 +149,7 @@ class WaveManager:
     def update_wave_progress(self):
         """Update the wave progress indicator"""
         if self.current_wave_config:
-            total_enemies = len(self.current_wave_config["enemies"])
+            total_enemies = sum(count for _, count in self.current_wave_config["enemies"])
             enemies_left = len(self.current_wave_enemies) + len(self.game.enemies)
             self.wave_progress = 1.0 - (enemies_left / total_enemies)
         else:
@@ -91,7 +166,7 @@ class WaveManager:
                 self.game.money += bonus
                 self.game.floating_texts.append(
                     FloatingText(
-                        f"Wave Complete! +${bonus}", 
+                        f"Wave {self.game.wave} Complete! +${bonus}", 
                         (self.game.screen_width // 2, self.game.screen_height // 2 - 50),
                         (255, 255, 0), 
                         32, 

@@ -1,8 +1,37 @@
 import pygame
 import os
 from game.settings import tower_types
-from game.utils import create_element_icon
 import random
+import math
+
+# Move the create_element_icon function here to avoid circular imports
+def create_element_icon(element_type, size):
+    """Create a stylized element icon for the tower type"""
+    colors = {
+        "Fire": (255, 0, 0),
+        "Water": (0, 0, 255),
+        "Air": (135, 206, 235),
+        "Earth": (139, 69, 19),
+        "Darkness": (128, 0, 128),
+        "Light": (255, 255, 0),
+        "Life": (255, 105, 180)
+    }
+    
+    surface = pygame.Surface((size, size), pygame.SRCALPHA)
+    color = colors.get(element_type, (255, 255, 255))
+    
+    # Base circle for all elements
+    pygame.draw.circle(surface, color, (size//2, size//2), size//2)
+    
+    # Add element-specific details
+    if element_type == "Fire":
+        points = [(size//2, size//5), (size//3, size//2), (size//2, size//1.5), (size//1.5, size//2)]
+        pygame.draw.polygon(surface, (255, 165, 0), points)
+    elif element_type == "Water":
+        pygame.draw.arc(surface, (173, 216, 230), (size//4, size//4, size//2, size//2), 0, math.pi, 3)
+        pygame.draw.arc(surface, (173, 216, 230), (size//4, size//2, size//2, size//2), math.pi, 2*math.pi, 3)
+    
+    return surface
 
 
 def load_assets():

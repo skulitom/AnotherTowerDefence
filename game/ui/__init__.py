@@ -9,6 +9,7 @@ from game.ui.tower_info_panel import TowerInfoPanel
 from game.ui.wave_panel import WavePanel
 from game.ui.status_panel import StatusPanel
 from game.ui.tower_selection_panel import TowerSelectionPanel
+from game.ui.save_menu import SaveGameMenu
 
 __all__ = [
     'GameUI',
@@ -17,5 +18,6 @@ __all__ = [
     'TowerInfoPanel',
     'WavePanel',
     'StatusPanel',
-    'TowerSelectionPanel'
+    'TowerSelectionPanel',
+    'SaveGameMenu'
 ] 

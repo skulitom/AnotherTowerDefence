@@ -7,6 +7,8 @@ Features:
 - Dynamic weather system
 - Tower evolution specializations
 - Unique enemy types and abilities
+- Procedurally generated paths
+- Infinite levels with increasing difficulty
 """
 import pygame
 import sys
@@ -46,6 +48,8 @@ def main():
     print("  - Elemental Synergies: Place compatible towers near each other")
     print("  - Dynamic Weather: Affects different tower types")
     print("  - Tower Evolution: Upgrade towers to specialized forms")
+    print("  - Procedural Paths: Each wave features a uniquely generated path")
+    print("  - Infinite Levels: Challenge yourself with endless waves of increasing difficulty")
     
     # Start the game
     try:

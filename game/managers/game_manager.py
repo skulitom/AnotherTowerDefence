@@ -3,6 +3,10 @@ Game Manager - Central manager for game state
 """
 import pygame
 import random
+import json
+import os
+import pickle
+from datetime import datetime
 from pygame import Vector2
 
 from game.core.camera import Camera
@@ -11,8 +15,9 @@ from game.enemy import Enemy
 from game.towers import create_tower
 from game.projectile import Projectile
 from game.assets import load_assets
-from game.utils import ParticleSystem
-from game.ui import GameUI, FloatingText
+from game.utils import ParticleSystem  # Original utils.py module
+from game.path_utils.path_generator import PathGenerator  # From path_utils package
+from game.ui import GameUI, FloatingText, SaveGameMenu
 from game.managers.input_manager import InputManager
 from game.managers.wave_manager import WaveManager
 from game.managers.renderer import Renderer
@@ -32,10 +37,24 @@ class GameManager:
         # Load assets
         self.assets = load_assets()
         
-        # Create path for enemies
+        # Create path generator for procedural levels
+        self.path_generator = PathGenerator()
+        self.procedural_paths_enabled = True  # Enable procedural path generation
+        
+        # Create initial path for enemies (will be overridden by procedural paths if enabled)
         self.base_path_points = [(0, 0.222), (0.25, 0.222), (0.25, 0.722), (0.5, 0.722),
                           (0.5, 0.222), (0.75, 0.222), (0.75, 0.722), (1.0, 0.722)]
         self.path_points = [(p[0] * screen_width, p[1] * screen_height) for p in self.base_path_points]
+        
+        # Create saves directory if it doesn't exist
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        base_dir = os.path.dirname(os.path.dirname(current_dir))
+        self.saves_dir = os.path.join(base_dir, "saves")
+        print(f"Saves directory: {self.saves_dir}")
+        os.makedirs(self.saves_dir, exist_ok=True)
+        
+        # Flag to keep track of current game path seed
+        self.path_seed = random.randint(1, 10000)
         
         # Initialize game state
         self.reset()
@@ -59,6 +78,9 @@ class GameManager:
         
         # Create UI
         self.ui = GameUI(self.screen_width, self.screen_height)
+        
+        # Create save/load menu
+        self.save_menu = SaveGameMenu(self.screen_width, self.screen_height, self)
         
         # Create particle system
         self.particles = ParticleSystem(max_particles=500)
@@ -110,6 +132,16 @@ class GameManager:
         # Tower ID counter (for uniquely identifying towers)
         self.next_tower_id = 0
         
+        # Generate a new path seed for this game
+        self.path_seed = random.randint(1, 10000)
+        
+        # Generate a new random path if procedural paths are enabled
+        if hasattr(self, 'path_generator') and self.procedural_paths_enabled:
+            # Use the path_seed to generate consistent paths
+            self.base_path_points, self.path_points = self.path_generator.generate_wave_path(
+                self.path_seed, self.screen_width, self.screen_height
+            )
+        
         # If systems are initialized, reset them too
         if hasattr(self, 'synergy_manager'):
             self.active_synergies = {}
@@ -126,7 +158,12 @@ class GameManager:
     
     def handle_event(self, event):
         """Handle pygame events"""
-        # Let input manager handle the events first
+        # Check if save menu is visible and let it handle events first
+        if hasattr(self, 'save_menu') and self.save_menu.visible:
+            if self.save_menu.handle_event(event):
+                return True
+            
+        # Let input manager handle the events
         if self.input_manager.handle_event(event):
             return True
         
@@ -489,17 +526,25 @@ class GameManager:
         return (p - projection).length()
     
     def handle_resize(self, width, height):
-        """Handle window resize event"""
+        """Handle window resize events"""
+        # Update screen dimensions
         self.screen_width = width
         self.screen_height = height
         self.screen = pygame.display.set_mode((width, height), 
-                                          pygame.RESIZABLE | (pygame.FULLSCREEN if self.fullscreen else 0))
+                                           pygame.RESIZABLE | (pygame.FULLSCREEN if self.fullscreen else 0))
         
-        # Update UI and camera with new dimensions
+        # Update sidebar width
         self.sidebar_width = int(width * 0.185)
+        
+        # Update gameplay area and camera
         self.gameplay_area = (0, 0, width, height)
         self.camera.update_screen_size(width, height, self.gameplay_area)
+        
+        # Update UI
         self.ui.update_screen_size(width, height)
+        
+        # Update save menu
+        self.save_menu.update_screen_size(width, height)
         
         # Update path for enemies
         self.update_path_points()
@@ -542,6 +587,9 @@ class GameManager:
             alpha = int(255 * self.screen_flash * 0.5)  # 50% max opacity
             flash_surface.fill(self.screen_flash_color + (alpha,))
             self.screen.blit(flash_surface, (0, 0))
+            
+        # Draw save/load menu if visible
+        self.save_menu.draw(self.screen)
     
     def is_game_over(self):
         """Check if the game is over"""
@@ -553,9 +601,18 @@ class GameManager:
     
     def on_wave_complete(self):
         """Handle wave completion"""
-        self.wave += 1
-        self.money += 100  # Assuming a default reward for completing a wave
-        self.ui.add_floating_text(self.screen_width / 2, self.screen_height / 2, f"Wave {self.wave} completed!", (0, 255, 0), size=24, lifetime=3.0)
+        # Apply wave completion rewards
+        
+        # Generate a preview of the next path if procedural paths are enabled
+        if self.procedural_paths_enabled and not self.wave_active:
+            next_wave = self.wave + 1
+            # Generate the path for the next wave but don't apply it yet
+            _, preview_path = self.path_generator.generate_wave_path(
+                next_wave, self.screen_width, self.screen_height
+            )
+            
+            # Could add visualization of the preview path here
+            # self.preview_path = preview_path
     
     def on_enemy_killed(self, enemy, tower=None):
         """Handle enemy death"""
@@ -599,4 +656,228 @@ class GameManager:
         # Return the created tower or None
         if result:
             return self.selected_tower
-        return None 
+        return None
+    
+    def save_game(self):
+        """Save the current game state to a file"""
+        # Ensure the saves directory exists
+        try:
+            os.makedirs(self.saves_dir, exist_ok=True)
+        except Exception as e:
+            print(f"Error creating saves directory: {e}")
+            self.floating_texts.append(
+                FloatingText(
+                    f"Error creating saves directory: {str(e)}",
+                    (self.screen_width // 2, self.screen_height // 2 - 50),
+                    (255, 100, 100),
+                    24,
+                    duration=3.0
+                )
+            )
+            return False
+            
+        # Create a dictionary with all relevant game state
+        game_state = {
+            "version": 1.1,  # Updated save file version
+            "timestamp": datetime.now().strftime("%Y-%m-%d_%H-%M-%S"),
+            "path_seed": self.path_seed,
+            "wave": self.wave,
+            "lives": self.lives,
+            "money": self.money,
+            "score": self.score,
+            "towers": [],
+            # New state information
+            "weather": {
+                "current_weather": self.weather_manager.current_weather,
+                "weather_timer": self.weather_manager.weather_timer,
+                "previous_weather": self.weather_manager.previous_weather
+            },
+            "camera": {
+                "x": self.camera.x,
+                "y": self.camera.y,
+                "zoom": self.camera.zoom
+            },
+            "active_synergies": {}
+        }
+        
+        # Save all tower information
+        for tower in self.towers:
+            tower_data = {
+                "type": tower.tower_type,
+                "position": (tower.pos.x, tower.pos.y),
+                "upgrades": tower.upgrades,
+                "id": tower.id,
+                "kills": getattr(tower, "kills", 0),
+                # Add evolution state if available
+                "evolution": getattr(tower, "evolution", None)
+            }
+            game_state["towers"].append(tower_data)
+        
+        # Save active synergies
+        for synergy_key, synergy_data in self.synergy_manager.active_synergies.items():
+            tower1_id, tower2_id = synergy_key
+            game_state["active_synergies"][f"{tower1_id}_{tower2_id}"] = {
+                "type": synergy_data.get("type", "unknown"),
+                "tower_ids": [tower1_id, tower2_id]
+            }
+        
+        # Generate a filename based on timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"game_save_{timestamp}.json"
+        filepath = os.path.join(self.saves_dir, filename)
+        
+        # Print debug info
+        print(f"Saving game to: {filepath}")
+        
+        # Save the game state to a file
+        try:
+            with open(filepath, 'w') as f:
+                json.dump(game_state, f, indent=2)
+            
+            # Show success message
+            self.floating_texts.append(
+                FloatingText(
+                    f"Game saved to {filename}",
+                    (self.screen_width // 2, self.screen_height // 2 - 50),
+                    (100, 255, 100),
+                    24,
+                    duration=3.0
+                )
+            )
+            print(f"Game successfully saved to {filename}")
+            return True
+        except Exception as e:
+            # Show error message
+            error_msg = f"Error saving game: {str(e)}"
+            print(error_msg)
+            self.floating_texts.append(
+                FloatingText(
+                    error_msg,
+                    (self.screen_width // 2, self.screen_height // 2 - 50),
+                    (255, 100, 100),
+                    24,
+                    duration=3.0
+                )
+            )
+            return False
+    
+    def load_game(self, filepath):
+        """Load a game state from a file"""
+        try:
+            # Load the game state from the file
+            with open(filepath, 'r') as f:
+                game_state = json.load(f)
+            
+            # Verify it's a valid save file
+            if "version" not in game_state or game_state["version"] < 1.0:
+                raise ValueError("Invalid or incompatible save file version")
+            
+            # Reset the game to clear current state
+            self.reset()
+            
+            # Load path seed and generate the same path
+            self.path_seed = game_state["path_seed"]
+            if hasattr(self, 'path_generator') and self.procedural_paths_enabled:
+                self.base_path_points, self.path_points = self.path_generator.generate_wave_path(
+                    self.path_seed, self.screen_width, self.screen_height
+                )
+            
+            # Load game state
+            self.wave = game_state["wave"]
+            self.lives = game_state["lives"]
+            self.money = game_state["money"]
+            self.score = game_state["score"]
+            
+            # Restore all towers
+            for tower_data in game_state["towers"]:
+                position = Vector2(tower_data["position"][0], tower_data["position"][1])
+                tower = self.create_tower(tower_data["type"], position)
+                
+                if tower:
+                    # Restore tower upgrades
+                    for upgrade_type, level in tower_data["upgrades"].items():
+                        for _ in range(level):
+                            tower.upgrade(upgrade_type)
+                    
+                    # Restore tower ID
+                    tower.id = tower_data["id"]
+                    
+                    # Restore kill count if tracked
+                    if "kills" in tower_data:
+                        tower.kills = tower_data["kills"]
+                    
+                    # Restore evolution if available
+                    if "evolution" in tower_data and tower_data["evolution"]:
+                        tower.evolution = tower_data["evolution"]
+            
+            # Update next_tower_id to avoid ID conflicts
+            if self.towers:
+                self.next_tower_id = max(tower.id for tower in self.towers) + 1
+            
+            # Load weather state if available (v1.1+)
+            if "weather" in game_state:
+                weather_data = game_state["weather"]
+                self.weather_manager.current_weather = weather_data.get("current_weather", "clear")
+                self.weather_manager.weather_timer = weather_data.get("weather_timer", 0)
+                self.weather_manager.previous_weather = weather_data.get("previous_weather", "clear")
+            
+            # Load camera state if available (v1.1+)
+            if "camera" in game_state:
+                camera_data = game_state["camera"]
+                self.camera.x = camera_data.get("x", self.screen_width / 2)
+                self.camera.y = camera_data.get("y", self.screen_height / 2)
+                self.camera.zoom = camera_data.get("zoom", 1.0)
+            
+            # Restore synergies if available (v1.1+)
+            if "active_synergies" in game_state:
+                # Clear existing synergies
+                self.synergy_manager.active_synergies = {}
+                
+                # Force synergy check to rebuild synergies properly
+                self.synergy_manager.check_synergies()
+            
+            # Show success message
+            self.floating_texts.append(
+                FloatingText(
+                    f"Game loaded successfully!",
+                    (self.screen_width // 2, self.screen_height // 2 - 50),
+                    (100, 255, 100),
+                    24,
+                    duration=3.0
+                )
+            )
+            return True
+        except Exception as e:
+            # Show error message
+            self.floating_texts.append(
+                FloatingText(
+                    f"Error loading game: {str(e)}",
+                    (self.screen_width // 2, self.screen_height // 2 - 50),
+                    (255, 100, 100),
+                    24,
+                    duration=3.0
+                )
+            )
+            return False
+    
+    def get_save_files(self):
+        """Get a list of available save files"""
+        saves = []
+        if os.path.exists(self.saves_dir):
+            for filename in os.listdir(self.saves_dir):
+                if filename.endswith(".json"):
+                    filepath = os.path.join(self.saves_dir, filename)
+                    try:
+                        with open(filepath, 'r') as f:
+                            save_data = json.load(f)
+                        saves.append({
+                            "filename": filename,
+                            "filepath": filepath,
+                            "timestamp": save_data.get("timestamp", "Unknown"),
+                            "wave": save_data.get("wave", 0),
+                            "score": save_data.get("score", 0)
+                        })
+                    except:
+                        # Skip invalid save files
+                        pass
+        return saves 

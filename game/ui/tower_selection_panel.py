@@ -9,15 +9,17 @@ class TowerSelectionPanel:
         self.font = pygame.font.SysFont(None, 24)
         self.tower_buttons = []
         self.selected_tower = None
+        self.saveload_button = None
         self.create_buttons()
         
     def create_buttons(self):
         # Calculate optimal button sizes based on panel dimensions
         num_towers = 7  # Fire, Water, Air, Earth, Darkness, Light, Life
         
-        # Calculate available space after accounting for title
+        # Calculate available space after accounting for title and save/load button
         title_height = 30
-        available_height = self.rect.height - title_height - 20  # 20px padding at bottom
+        saveload_height = 35  # Height for the save/load button
+        available_height = self.rect.height - title_height - saveload_height - 30  # 30px padding (20 at bottom + 10 between buttons)
         
         # Calculate optimal button height and spacing
         max_button_height = 40
@@ -55,6 +57,18 @@ class TowerSelectionPanel:
                 font_size=min(18, int(button_height * 0.45))  # Scale font to button size
             )
             self.tower_buttons.append((tower_type, button))
+            
+        # Create save/load button at bottom
+        saveload_y = self.rect.y + self.rect.height - saveload_height - 10
+        saveload_rect = pygame.Rect(self.rect.x + 10, saveload_y, button_width, saveload_height)
+        self.saveload_button = Button(
+            saveload_rect,
+            "Save/Load Game",
+            color=(80, 100, 80),
+            hover_color=(100, 150, 100),
+            tooltip="Open the save and load game dialog",
+            font_size=min(18, int(saveload_height * 0.5))
+        )
     
     def update(self, selected_tower, money):
         self.selected_tower = selected_tower
@@ -80,13 +94,22 @@ class TowerSelectionPanel:
         # Draw tower buttons
         for _, button in self.tower_buttons:
             button.draw(surface)
+            
+        # Draw save/load button
+        if self.saveload_button:
+            self.saveload_button.draw(surface)
     
     def handle_event(self, event):
         mouse_pos = pygame.mouse.get_pos()
         mouse_pressed = event.type == pygame.MOUSEBUTTONDOWN and event.button == 1
         
+        # Check tower buttons
         for tower_type, button in self.tower_buttons:
             if button.update(mouse_pos, mouse_pressed):
                 return tower_type
+                
+        # Check save/load button
+        if self.saveload_button and self.saveload_button.update(mouse_pos, mouse_pressed):
+            return "save_load"
                 
         return None 

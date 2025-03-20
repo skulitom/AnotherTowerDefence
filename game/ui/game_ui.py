@@ -252,9 +252,13 @@ class GameUI:
         # Handle tower selection events
         tower_type = self.tower_selection_panel.handle_event(event)
         if tower_type:
-            result["action"] = "select_tower"
-            result["target"] = tower_type
-            return result
+            if tower_type == "save_load":
+                result["action"] = "open_save_menu"
+                return result
+            else:
+                result["action"] = "select_tower"
+                result["target"] = tower_type
+                return result
         
         # Handle wave panel events
         action = self.wave_panel.handle_event(event)
