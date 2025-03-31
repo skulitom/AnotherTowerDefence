@@ -6,9 +6,10 @@ from game.ui.tower_selection_panel import TowerSelectionPanel
 from game.ui.floating_text import FloatingText  # Fix circular import by importing directly
 
 class GameUI:
-    def __init__(self, screen_width, screen_height):
+    def __init__(self, screen_width, screen_height, assets):
         self.screen_width = screen_width
         self.screen_height = screen_height
+        self.assets = assets
         
         # Calculate optimal panel sizes
         self.calculate_panel_dimensions()
@@ -17,7 +18,7 @@ class GameUI:
         self.create_panels()
         
         # Tower tooltip info for hover
-        self.tooltip_font = pygame.font.SysFont(None, 18)
+        # self.tooltip_font = pygame.font.SysFont(None, 18)
         self.hover_tower = None
         
         # Store floating texts
@@ -68,7 +69,8 @@ class GameUI:
                 self.panel_spacing, 
                 self.sidebar_width - self.panel_spacing, 
                 self.info_panel_height
-            )
+            ),
+            self.assets
         )
         
         # Wave info panel below tower info
@@ -78,7 +80,8 @@ class GameUI:
                 self.panel_spacing * 2 + self.info_panel_height, 
                 self.sidebar_width - self.panel_spacing, 
                 self.wave_panel_height
-            )
+            ),
+            self.assets
         )
         
         # Left sidebar top for status
@@ -95,10 +98,11 @@ class GameUI:
         self.tower_selection_panel = TowerSelectionPanel(
             pygame.Rect(
                 self.panel_spacing, 
-                self.panel_spacing * 2 + self.status_panel_height, 
+                self.panel_spacing * 2 + self.status_panel_height,
                 self.sidebar_width - self.panel_spacing, 
                 self.tower_selection_height
-            )
+            ),
+            self.assets
         )
     
     def update_screen_size(self, screen_width, screen_height):
@@ -176,35 +180,47 @@ class GameUI:
             game_state.get("wave_active", False)
         )
         
-        # Draw all panels
-        self.tower_info_panel.draw(surface, assets)
-        self.status_panel.draw(surface, assets)
-        self.tower_selection_panel.draw(surface)
-        self.wave_panel.draw(surface)
+        # Draw all panels and collect their tooltips
+        all_tooltips = []
+        # Note: StatusPanel doesn't have buttons, so no tooltips expected yet
+        self.status_panel.draw(surface, assets) 
+        # Assuming panel draw methods now return a list of (surface, rect) for tooltips
+        all_tooltips.extend(self.tower_info_panel.draw(surface, assets))
+        all_tooltips.extend(self.tower_selection_panel.draw(surface, assets))
+        all_tooltips.extend(self.wave_panel.draw(surface, assets))
         
         # Draw floating texts
         for text in self.floating_texts:
             text.draw(surface)
         
-        # Draw hover tooltip for towers
+        # Draw hover tooltip for towers (This one is separate from button tooltips)
         hover_tower = game_state.get("hover_tower")
         if hover_tower and hover_tower != game_state.get("selected_tower"):
-            self.draw_tower_tooltip(surface, hover_tower, pygame.mouse.get_pos())
+            # Pass assets to tooltip drawing function
+            self.draw_tower_tooltip(surface, hover_tower, pygame.mouse.get_pos(), assets)
+            
+        # Draw all collected button tooltips LAST (on top)
+        for tooltip_surf, tooltip_rect in all_tooltips:
+            surface.blit(tooltip_surf, tooltip_rect.topleft)
     
-    def draw_tower_tooltip(self, surface, tower, mouse_pos):
+    def draw_tower_tooltip(self, surface, tower, mouse_pos, assets):
+        # Get small font from assets for tooltip
+        tooltip_font = assets["fonts"].get("body_small")
+        
         # Create tooltip text
         lines = [
             f"{tower.tower_type} Tower (Level {tower.level})",
             f"Damage: {tower.current_damage:.1f}",
             f"Range: {tower.range:.0f}",
-            f"Attack Speed: {1/tower.cooldown:.1f}/s"
+            f"Attack Speed: {1/tower.cooldown:.1f}/s",
+            f"Target: {tower.targeting_priority}"
         ]
         
         # Measure tooltip size
-        line_height = self.tooltip_font.get_height()
+        line_height = tooltip_font.get_height()
         max_width = 0
         for line in lines:
-            text_surf = self.tooltip_font.render(line, True, (255, 255, 255))
+            text_surf = tooltip_font.render(line, True, (255, 255, 255))
             max_width = max(max_width, text_surf.get_width())
         
         tooltip_height = line_height * len(lines) + 15
@@ -227,7 +243,7 @@ class GameUI:
         
         # Draw tooltip text
         for i, line in enumerate(lines):
-            text_surf = self.tooltip_font.render(line, True, (255, 255, 255))
+            text_surf = tooltip_font.render(line, True, (255, 255, 255))
             surface.blit(text_surf, (tooltip_x + 10, tooltip_y + 8 + i * line_height))
     
     def handle_event(self, event, game_state):

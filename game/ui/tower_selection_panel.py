@@ -4,9 +4,9 @@ from game.settings import tower_types
 from game.ui.button import Button
 
 class TowerSelectionPanel:
-    def __init__(self, rect):
+    def __init__(self, rect, assets):
         self.rect = rect
-        self.font = pygame.font.SysFont(None, 24)
+        self.assets = assets
         self.tower_buttons = []
         self.selected_tower = None
         self.saveload_button = None
@@ -54,7 +54,8 @@ class TowerSelectionPanel:
                 hover_color=(80, 80, 150),
                 tooltip=tower_types[tower_type].get("description", ""),
                 icon=tower_type,
-                font_size=min(18, int(button_height * 0.45))  # Scale font to button size
+                font_size=min(18, int(button_height * 0.45)),  # Scale font to button size
+                assets=self.assets
             )
             self.tower_buttons.append((tower_type, button))
             
@@ -67,7 +68,8 @@ class TowerSelectionPanel:
             color=(80, 100, 80),
             hover_color=(100, 150, 100),
             tooltip="Open the save and load game dialog",
-            font_size=min(18, int(saveload_height * 0.5))
+            font_size=min(18, int(saveload_height * 0.5)),
+            assets=self.assets
         )
     
     def update(self, selected_tower, money):
@@ -87,9 +89,12 @@ class TowerSelectionPanel:
             cost = tower_types[tower_type]["cost"]
             button.enabled = money >= cost
     
-    def draw(self, surface):
-        # Draw panel background with title
-        draw_panel_background(surface, self.rect, title="Tower Selection")
+    def draw(self, surface, assets):
+        # Get fonts from assets
+        font_title = assets["fonts"].get("title")
+        
+        # Draw panel background with title using loaded font
+        draw_panel_background(surface, self.rect, title="Tower Selection", font=font_title)
         
         # Draw tower buttons
         for _, button in self.tower_buttons:
@@ -98,6 +103,20 @@ class TowerSelectionPanel:
         # Draw save/load button
         if self.saveload_button:
             self.saveload_button.draw(surface)
+            
+        # Collect tooltips
+        tooltips_to_draw = []
+        for _, button in self.tower_buttons:
+            tooltip_surf, tooltip_rect = button.get_tooltip_surface(surface.get_width(), surface.get_height())
+            if tooltip_surf:
+                tooltips_to_draw.append((tooltip_surf, tooltip_rect))
+                
+        if self.saveload_button:
+            tooltip_surf, tooltip_rect = self.saveload_button.get_tooltip_surface(surface.get_width(), surface.get_height())
+            if tooltip_surf:
+                tooltips_to_draw.append((tooltip_surf, tooltip_rect))
+                
+        return tooltips_to_draw # Return the list
     
     def handle_event(self, event):
         mouse_pos = pygame.mouse.get_pos()

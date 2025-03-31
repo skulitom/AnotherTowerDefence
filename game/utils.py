@@ -315,7 +315,7 @@ def create_element_icon(element_type, size):
     
     return surface 
 
-def draw_panel_background(surface, rect, title=None, dark_theme=True, border_radius=10, font=None):
+def draw_panel_background(surface, rect, title=None, dark_theme=True, border_radius=15, font=None):
     """
     Draw a consistent panel background with optional title.
     
@@ -330,15 +330,15 @@ def draw_panel_background(surface, rect, title=None, dark_theme=True, border_rad
     # Create panel surface with rounded corners
     panel_surf = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
     
-    # Draw panel background gradient
+    # Draw panel background gradient (Softer colors)
     if dark_theme:
-        top_color = (25, 25, 40)
-        bottom_color = (15, 15, 30)
-        border_color = (80, 100, 180, 100)
+        top_color = (35, 35, 55) # Slightly lighter top
+        bottom_color = (20, 20, 35) # Slightly lighter bottom
+        border_color = (90, 110, 190, 120) # Adjusted border alpha/color
     else:
-        top_color = (230, 230, 240)
-        bottom_color = (200, 200, 220)
-        border_color = (120, 140, 200, 100)
+        top_color = (235, 235, 245) # Slightly softer light top
+        bottom_color = (210, 210, 230) # Slightly softer light bottom
+        border_color = (130, 150, 210, 120) # Adjusted light border
     
     for y in range(rect.height):
         progress = y / rect.height
@@ -349,11 +349,11 @@ def draw_panel_background(surface, rect, title=None, dark_theme=True, border_rad
     
     # Draw border with glow
     pygame.draw.rect(panel_surf, (0, 0, 0, 0), (0, 0, rect.width, rect.height), border_radius=border_radius)
-    pygame.draw.rect(panel_surf, border_color, (0, 0, rect.width, rect.height), 1, border_radius=border_radius)
+    pygame.draw.rect(panel_surf, border_color, (0, 0, rect.width, rect.height), 2, border_radius=border_radius) # Increased border thickness to 2
     
     # Add top highlight
-    highlight_color = (120, 140, 200, 60) if dark_theme else (255, 255, 255, 100)
-    pygame.draw.line(panel_surf, highlight_color, (5, 2), (rect.width-5, 2))
+    highlight_color = (130, 150, 210, 70) if dark_theme else (255, 255, 255, 110) # Adjusted highlight
+    pygame.draw.line(panel_surf, highlight_color, (border_radius // 2, 3), (rect.width - border_radius // 2, 3)) # Adjusted highlight position slightly
     
     # Blit panel surface
     surface.blit(panel_surf, rect.topleft)
@@ -361,13 +361,21 @@ def draw_panel_background(surface, rect, title=None, dark_theme=True, border_rad
     # Draw title if provided
     if title:
         if font is None:
-            font = pygame.font.SysFont(None, 28)
+            font = pygame.font.SysFont(None, 28) # Consider loading a custom font here later
         
-        title_color = (220, 220, 255) if dark_theme else (40, 40, 80)
+        title_color = (230, 230, 255) if dark_theme else (30, 30, 70) # Adjusted title colors
+        shadow_color = (20, 20, 30, 180) if dark_theme else (150, 150, 170, 150) # Darker shadow for dark, lighter for light
+        
+        # Render shadow first
+        shadow_surf = font.render(title, True, shadow_color)
+        shadow_rect = shadow_surf.get_rect(midtop=(rect.centerx + 1, rect.y + 12 + 1)) # Offset shadow
+        surface.blit(shadow_surf, shadow_rect)
+        
+        # Render main title text
         title_surf = font.render(title, True, title_color)
-        title_rect = title_surf.get_rect(midtop=(rect.centerx, rect.y + 10))
+        title_rect = title_surf.get_rect(midtop=(rect.centerx, rect.y + 12)) # Adjusted title position slightly
         surface.blit(title_surf, title_rect)
         
-        return title_rect.bottom + 5  # Return y position after title for content
+        return title_rect.bottom + 8  # Adjusted content start position
     
-    return rect.y + 10  # Return starting y position for content if no title 
+    return rect.y + 15  # Adjusted content start position if no title 

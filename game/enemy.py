@@ -331,6 +331,44 @@ class Enemy:
                 "value": value or 1.5  # 50% more damage
             }
 
+    def get_path_progress(self):
+        """Calculate a metric representing how far the enemy has progressed along the path."""
+        if self.reached_end:
+            # Return a large number if the enemy reached the end
+            return float('inf')
+            
+        if self.current_point_index == 0:
+            # Enemy hasn't started moving along the main path yet
+            return 0.0
+
+        # Calculate progress based on completed segments and position on current segment
+        # Index of the point the enemy just passed
+        last_point_index = self.current_point_index - 1
+        
+        # Points defining the current segment
+        last_point = self.path_points[last_point_index]
+        next_point = self.path_points[self.current_point_index]
+        
+        segment_vector = next_point - last_point
+        segment_length = segment_vector.length()
+        
+        if segment_length < 1e-6: # Avoid division by zero for very short/zero-length segments
+            # If segment is tiny, consider progress as just the index of the passed point
+            return float(last_point_index)
+            
+        vector_from_last = self.pos - last_point
+        
+        # Project the enemy's position onto the segment vector
+        # Ensure the projection distance isn't negative or beyond the segment length
+        distance_along_segment = vector_from_last.dot(segment_vector.normalize())
+        distance_along_segment = max(0.0, min(distance_along_segment, segment_length))
+        
+        fraction_along_segment = distance_along_segment / segment_length
+        
+        # Total progress: number of segments passed + fraction along current segment
+        progress = float(last_point_index) + fraction_along_segment
+        return progress
+
     def draw(self, surface, assets=None, camera=None, show_hp=False):
         """Draw the enemy"""
         # Apply camera transform if provided

@@ -233,6 +233,29 @@ class InputManager:
                     size=24,
                     lifetime=2.0
                 )
+        elif event.key == pygame.K_t and self.game.selected_tower:
+            # Cycle targeting priority for selected tower
+            priorities = ["First", "Last", "Strongest", "Weakest"]
+            current_priority = self.game.selected_tower.targeting_priority
+            try:
+                current_index = priorities.index(current_priority)
+                next_index = (current_index + 1) % len(priorities)
+                new_priority = priorities[next_index]
+                self.game.selected_tower.targeting_priority = new_priority
+                
+                # Add visual feedback
+                self.game.ui.add_floating_text(
+                    self.game.screen_width * 0.5,
+                    50,
+                    f"Targeting: {new_priority}",
+                    (150, 150, 255),
+                    size=24,
+                    lifetime=2.0
+                )
+            except ValueError:
+                # Should not happen, but reset to default if current priority is unknown
+                self.game.selected_tower.targeting_priority = priorities[0]
+                print(f"Warning: Unknown targeting priority '{current_priority}', resetting to First.")
         elif event.key == pygame.K_F5:
             # Save game (F5)
             self.game.save_menu.show("save")
@@ -362,6 +385,30 @@ class InputManager:
             return True
         elif ui_result["action"] == "upgrade" and self.game.selected_tower:
             self.game.upgrade_tower(self.game.selected_tower, ui_result["target"])
+            return True
+        elif ui_result["action"] == "target" and self.game.selected_tower:
+            # Cycle targeting priority
+            priorities = ["First", "Last", "Strongest", "Weakest"]
+            current_priority = self.game.selected_tower.targeting_priority
+            try:
+                current_index = priorities.index(current_priority)
+                next_index = (current_index + 1) % len(priorities)
+                new_priority = priorities[next_index]
+                self.game.selected_tower.targeting_priority = new_priority
+                
+                # Add visual feedback
+                self.game.ui.add_floating_text(
+                    self.game.screen_width * 0.5,
+                    50,
+                    f"Targeting: {new_priority}",
+                    (150, 150, 255),
+                    size=24,
+                    lifetime=2.0
+                )
+            except ValueError:
+                # Should not happen, but reset to default if current priority is unknown
+                self.game.selected_tower.targeting_priority = priorities[0]
+                print(f"Warning: Unknown targeting priority '{current_priority}', resetting to First.")
             return True
         elif ui_result["action"] == "sell" and self.game.selected_tower:
             self.game.sell_tower(self.game.selected_tower)

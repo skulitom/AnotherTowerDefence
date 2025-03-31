@@ -23,6 +23,9 @@ class BaseTower:
         self.buff_multiplier = 1.0
         self.current_damage = self.damage
         
+        # Game manager reference
+        self.game = None  # Will be set by GameManager when tower is created
+        
         # Special abilities
         self.special_ability = stats.get("special_ability")
         self.special_chance = stats.get("special_chance", 0)
@@ -42,6 +45,9 @@ class BaseTower:
         self.total_upgrades = 0
         self.kills = 0
         self.damage_dealt = 0
+        
+        # Targeting
+        self.targeting_priority = "First"  # Default targeting priority
         
         # Tower-specific initialization
         self.initialize()
@@ -128,7 +134,7 @@ class BaseTower:
     
     def find_target(self, enemies):
         """Find a suitable target based on tower targeting strategy"""
-        # Keep current target if valid
+        # Keep current target if valid and target lock timer is active
         target = self.targeting_enemy
         
         # Check if current target is still valid
@@ -138,8 +144,7 @@ class BaseTower:
         
         # Find new target if needed
         if not target or self.target_lock_timer <= 0:
-            closest_distance = float('inf')
-            closest_enemy = None
+            in_range_enemies = []
             
             for enemy in enemies:
                 # Skip cloaked enemies unless tower can see them
@@ -148,16 +153,23 @@ class BaseTower:
                 
                 distance = (enemy.pos - self.pos).length()
                 if distance <= self.range:
-                    # Tower-specific targeting strategies implemented in subclasses
-                    if self.is_preferred_target(enemy, distance, closest_enemy, closest_distance):
-                        closest_enemy = enemy
-                        closest_distance = distance
+                    in_range_enemies.append(enemy)
             
-            target = closest_enemy
-            self.targeting_enemy = closest_enemy
-            
-            # Set target lock timer (higher levels lock targets longer)
-            if target:
+            if in_range_enemies:
+                # Choose target based on priority
+                if self.targeting_priority == "First":
+                    target = max(in_range_enemies, key=lambda e: e.get_path_progress())
+                elif self.targeting_priority == "Last":
+                    target = min(in_range_enemies, key=lambda e: e.get_path_progress())
+                elif self.targeting_priority == "Strongest":
+                    target = max(in_range_enemies, key=lambda e: e.health)
+                elif self.targeting_priority == "Weakest":
+                    target = min(in_range_enemies, key=lambda e: e.health)
+                else:  # Default to First
+                    target = max(in_range_enemies, key=lambda e: e.get_path_progress())
+                
+                self.targeting_enemy = target
+                # Set target lock timer (higher levels lock targets longer)
                 self.target_lock_timer = 1.0 + self.level * 0.5
                 
         return target
@@ -249,19 +261,22 @@ class BaseTower:
             screen_radius = self.radius * camera.zoom
             screen_range = self.range * camera.zoom
         else:
-            screen_pos = self.pos.copy()
+            screen_pos = pygame.Vector2(self.pos)
             screen_radius = self.radius
             screen_range = self.range
-            
-        # Draw range circle if showing range or tower is selected
+        
+        # Draw range circle if selected or requested
         if show_range or selected:
-            range_surf = pygame.Surface((screen_range * 2, screen_range * 2), pygame.SRCALPHA)
-            if selected:
-                pygame.draw.circle(range_surf, (255, 255, 255, 60), (screen_range, screen_range), screen_range)
-                pygame.draw.circle(range_surf, (255, 255, 255, 100), (screen_range, screen_range), screen_range, 2)
-            else:
-                pygame.draw.circle(range_surf, (255, 255, 255, 30), (screen_range, screen_range), screen_range)
-            surface.blit(range_surf, (int(screen_pos.x - screen_range), int(screen_pos.y - screen_range)))
+            pygame.draw.circle(surface, (200, 200, 200, 100), screen_pos, screen_range, 1)
+        
+        # Draw tower body
+        pygame.draw.circle(surface, self.color, screen_pos, screen_radius)
+        
+        # Draw tower outline
+        if selected:
+            pygame.draw.circle(surface, (255, 255, 255), screen_pos, screen_radius + 2, 2)
+        else:
+            pygame.draw.circle(surface, (50, 50, 50), screen_pos, screen_radius, 1)
         
         # Draw targeting line if there's a target
         if self.targeting_enemy and self.targeting_enemy.health > 0:
@@ -278,35 +293,6 @@ class BaseTower:
                                    (int(self.pos.x), int(self.pos.y)), 
                                    (int(target_pos.x), int(target_pos.y)), 1)
         
-        # Draw tower base (circular platform)
-        base_radius = screen_radius + 5 * (camera.zoom if camera else 1)
-        base_height = 6 * (camera.zoom if camera else 1)
-        base_rect = pygame.Rect(
-            int(screen_pos.x - base_radius), 
-            int(screen_pos.y - base_height), 
-            base_radius * 2, 
-            base_height * 2
-        )
-        pygame.draw.ellipse(surface, (80, 80, 80), base_rect)
-        pygame.draw.ellipse(surface, (120, 120, 120), base_rect, max(1, int(2 * camera.zoom)) if camera else 2)
-        
-        # Draw tower
-        tower_img = assets["towers"].get(self.tower_type)
-        
-        if tower_img:
-            # Scale and rotate tower image
-            size = int(screen_radius * 2 * (1 + 0.1 * self.level))  # Bigger with higher levels
-            img = pygame.transform.scale(tower_img, (size, size))
-            
-            if self.tower_type != "Life":  # Don't rotate life towers
-                img = pygame.transform.rotate(img, self.rotation)
-            
-            img_rect = img.get_rect(center=(int(screen_pos.x), int(screen_pos.y)))
-            surface.blit(img, img_rect.topleft)
-        else:
-            # Fallback to circle if no image
-            pygame.draw.circle(surface, self.color, (int(screen_pos.x), int(screen_pos.y)), screen_radius)
-        
         # Draw tower level indicator
         if self.level > 1:
             level_text = str(self.level)
@@ -315,8 +301,23 @@ class BaseTower:
             text_rect = text_surf.get_rect(center=(int(screen_pos.x), int(screen_pos.y) - screen_radius - 10))
             surface.blit(text_surf, text_rect)
         
-        # Draw tower-specific effects
+        # Draw tower effects
         self.draw_effects(surface, screen_pos, screen_radius, camera)
+        
+        # Draw targeting priority if selected or hovered
+        if selected or self.game.hover_tower == self:
+            priority_font = pygame.font.SysFont('arial', 14)
+            priority_text = priority_font.render(f"Target: {self.targeting_priority}", True, 
+                                               (220, 220, 255) if selected else (180, 180, 220))
+            text_pos = (screen_pos.x - priority_text.get_width()//2, 
+                       screen_pos.y + screen_radius + 5)
+            # If selected, draw with a dark background for better visibility
+            if selected:
+                text_bg = pygame.Surface((priority_text.get_width() + 4, priority_text.get_height() + 4))
+                text_bg.fill((0, 0, 0))
+                text_bg.set_alpha(150)
+                surface.blit(text_bg, (text_pos[0] - 2, text_pos[1] - 2))
+            surface.blit(priority_text, text_pos)
         
         # Highlight if tower is buffed
         if self.tower_type != "Life" and self.buff_multiplier > 1.0:
@@ -335,4 +336,8 @@ class BaseTower:
     
     def draw_effects(self, surface, screen_pos, screen_radius, camera=None):
         """Tower-specific visual effects. Override in subclasses."""
-        pass 
+        pass
+        
+    def set_game_manager(self, game_manager):
+        """Set the game manager reference for this tower."""
+        self.game = game_manager 

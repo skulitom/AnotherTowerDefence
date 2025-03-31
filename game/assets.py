@@ -4,6 +4,11 @@ from game.settings import tower_types
 import random
 import math
 
+# Define font paths
+FONT_DIR = "assets/fonts"
+TITLE_FONT_PATH = os.path.join(FONT_DIR, "TitleFont.ttf") # Example filename
+BODY_FONT_PATH = os.path.join(FONT_DIR, "BodyFont.ttf")   # Example filename
+
 # Move the create_element_icon function here to avoid circular imports
 def create_element_icon(element_type, size):
     """Create a stylized element icon for the tower type"""
@@ -36,8 +41,39 @@ def create_element_icon(element_type, size):
 
 def load_assets():
     """Load all game assets or create placeholder graphics when needed"""
-    assets = {"towers": {}, "enemy": None, "projectile": None, "ui": {}}
+    assets = {"towers": {}, "enemy": None, "projectile": None, "ui": {}, "fonts": {}}
     
+    # --- Load Fonts ---
+    # Ensure fonts directory exists
+    if not os.path.exists(FONT_DIR):
+        try:
+            os.makedirs(FONT_DIR)
+            print(f"Created font directory: {FONT_DIR}")
+            print(f"Please place your .ttf or .otf font files there (e.g., TitleFont.ttf, BodyFont.ttf).")
+        except OSError as e:
+            print(f"Error creating font directory {FONT_DIR}: {e}")
+
+    # Load Title Font
+    try:
+        assets["fonts"]["title"] = pygame.font.Font(TITLE_FONT_PATH, 28)
+    except (pygame.error, FileNotFoundError):
+        print(f"Warning: Title font '{TITLE_FONT_PATH}' not found. Using default font.")
+        assets["fonts"]["title"] = pygame.font.SysFont(None, 30) # Default fallback
+        
+    # Load Body Font
+    try:
+        assets["fonts"]["body"] = pygame.font.Font(BODY_FONT_PATH, 22)
+    except (pygame.error, FileNotFoundError):
+        print(f"Warning: Body font '{BODY_FONT_PATH}' not found. Using default font.")
+        assets["fonts"]["body"] = pygame.font.SysFont(None, 24) # Default fallback
+        
+    # Load Small Body Font (for descriptions, tooltips etc.)
+    try:
+        assets["fonts"]["body_small"] = pygame.font.Font(BODY_FONT_PATH, 18)
+    except (pygame.error, FileNotFoundError):
+        # No warning for this one if body font already failed
+        assets["fonts"]["body_small"] = pygame.font.SysFont(None, 20) # Default fallback
+
     # Try to load tower images
     for tower_type in tower_types:
         try:
@@ -178,5 +214,34 @@ def load_assets():
     pygame.draw.line(panel_surf, (150, 150, 200, 100), (5, 2), (panel_size[0]-5, 2))
     
     assets["ui"]["panel"] = panel_surf
+    
+    # Generate UI Icons (Money and Lives)
+    icon_size = 20 # Define a standard size for these icons
+    
+    # Money Icon (Gold Coin)
+    money_icon_surf = pygame.Surface((icon_size, icon_size), pygame.SRCALPHA)
+    pygame.draw.circle(money_icon_surf, (255, 215, 0), (icon_size//2, icon_size//2), icon_size//2) # Gold color
+    pygame.draw.circle(money_icon_surf, (218, 165, 32), (icon_size//2, icon_size//2), icon_size//2, 1) # Darker border
+    # Add a simple '$' sign
+    font = pygame.font.SysFont(None, 18)
+    dollar_sign = font.render('$', True, (184, 134, 11))
+    dollar_rect = dollar_sign.get_rect(center=(icon_size//2, icon_size//2))
+    money_icon_surf.blit(dollar_sign, dollar_rect)
+    assets["ui"]["money_icon"] = money_icon_surf
+    
+    # Lives Icon (Heart)
+    lives_icon_surf = pygame.Surface((icon_size, icon_size), pygame.SRCALPHA)
+    # Draw heart shape (simplified)
+    heart_color = (220, 20, 60) # Crimson red
+    pygame.draw.circle(lives_icon_surf, heart_color, (icon_size*0.3, icon_size*0.35), icon_size*0.3)
+    pygame.draw.circle(lives_icon_surf, heart_color, (icon_size*0.7, icon_size*0.35), icon_size*0.3)
+    points = [
+        (icon_size*0.5, icon_size*0.8), # Bottom point
+        (icon_size*0.05, icon_size*0.4), # Top-left near circle edge
+        (icon_size*0.95, icon_size*0.4)  # Top-right near circle edge
+    ]
+    pygame.draw.polygon(lives_icon_surf, heart_color, points)
+    pygame.draw.polygon(lives_icon_surf, (139, 0, 0), points, 1) # Darker border
+    assets["ui"]["lives_icon"] = lives_icon_surf
     
     return assets 

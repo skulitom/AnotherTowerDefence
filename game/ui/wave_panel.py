@@ -3,10 +3,9 @@ from game.utils import draw_gradient_rect, draw_panel_background
 from game.ui.button import Button
 
 class WavePanel:
-    def __init__(self, rect):
+    def __init__(self, rect, assets):
         self.rect = rect
-        self.font_title = pygame.font.SysFont(None, 28)
-        self.font_info = pygame.font.SysFont(None, 20)
+        self.assets = assets
         self.current_wave = 0
         self.enemies_remaining = 0
         self.next_wave_button = None
@@ -35,7 +34,8 @@ class WavePanel:
             color=(60, 180, 60),
             hover_color=(80, 220, 80),
             tooltip="Start the next wave of enemies",
-            font_size=min(20, max(16, int(button_height * 0.6)))
+            font_size=min(20, max(16, int(button_height * 0.6))),
+            assets=self.assets
         )
     
     def update(self, current_wave, enemies_remaining, wave_progress=0.0, is_wave_active=False):
@@ -51,15 +51,19 @@ class WavePanel:
             self.next_wave_button.enabled = True
             self.next_wave_button.text = f"Start Wave {current_wave + 1}"
     
-    def draw(self, surface):
+    def draw(self, surface, assets):
+        # Get fonts from assets
+        font_title = assets["fonts"].get("title")
+        font_info = assets["fonts"].get("body")
+        
         # Draw panel background
         title = f"Wave {self.current_wave}"
-        content_y = draw_panel_background(surface, self.rect, title=title, dark_theme=False)
+        content_y = draw_panel_background(surface, self.rect, title=title, dark_theme=True, font=font_title)
         
         # Draw enemies remaining
         enemies_text = f"Enemies Remaining: {self.enemies_remaining}"
-        enemies_surf = self.font_info.render(enemies_text, True, (40, 40, 40))
-        enemies_rect = enemies_surf.get_rect(midtop=(self.rect.centerx, content_y))
+        enemies_surf = font_info.render(enemies_text, True, (220, 220, 220))
+        enemies_rect = enemies_surf.get_rect(midtop=(self.rect.centerx, content_y + 5))
         surface.blit(enemies_surf, enemies_rect)
         
         # Draw wave progress bar
@@ -78,6 +82,15 @@ class WavePanel:
         
         # Draw next wave button
         self.next_wave_button.draw(surface)
+        
+        # Collect tooltips
+        tooltips_to_draw = []
+        if self.next_wave_button:
+            tooltip_surf, tooltip_rect = self.next_wave_button.get_tooltip_surface(surface.get_width(), surface.get_height())
+            if tooltip_surf:
+                tooltips_to_draw.append((tooltip_surf, tooltip_rect))
+                
+        return tooltips_to_draw # Return the list
     
     def handle_event(self, event):
         mouse_pos = pygame.mouse.get_pos()

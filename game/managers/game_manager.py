@@ -34,7 +34,7 @@ class GameManager:
         self.screen = pygame.display.set_mode((screen_width, screen_height), pygame.RESIZABLE)
         pygame.display.set_caption("Element Crystal Tower Defense")
         
-        # Load assets
+        # Load assets FIRST
         self.assets = load_assets()
         
         # Create path generator for procedural levels
@@ -59,7 +59,7 @@ class GameManager:
         # Initialize game state
         self.reset()
         
-        # Setup systems
+        # Setup systems (now assets are loaded)
         self.create_systems()
         
         # Added missing attribute
@@ -76,8 +76,8 @@ class GameManager:
         self.camera.x = self.screen_width / 2
         self.camera.y = self.screen_height / 2
         
-        # Create UI
-        self.ui = GameUI(self.screen_width, self.screen_height)
+        # Create UI - Pass assets now
+        self.ui = GameUI(self.screen_width, self.screen_height, self.assets)
         
         # Create save/load menu
         self.save_menu = SaveGameMenu(self.screen_width, self.screen_height, self)
@@ -423,6 +423,9 @@ class GameManager:
         if self.money >= cost:
             self.money -= cost
             new_tower = create_tower(position, self.current_tower_type)
+            
+            # Set game manager reference
+            new_tower.set_game_manager(self)
             
             # Assign a unique ID to the tower
             new_tower.id = self.next_tower_id

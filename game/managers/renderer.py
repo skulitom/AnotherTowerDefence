@@ -296,18 +296,24 @@ class Renderer:
         
         control_bg = pygame.Surface((help_panel_width, help_panel_height), pygame.SRCALPHA)
         control_bg.fill((20, 20, 30, 150))
+        
+        # Position the control hints box left of the right sidebar
+        hints_x = self.game.screen_width - self.game.sidebar_width - help_panel_width - 10 # 10px padding from sidebar line
+        hints_y = self.game.screen_height - help_panel_height - 10 # 10px padding from bottom
+        
         self.game.screen.blit(
             control_bg, 
-            (self.game.screen_width - help_panel_width - 20, self.game.screen_height - help_panel_height - 5)
+            (hints_x, hints_y) # Use calculated position
         )
         
-        # Calculate text positions based on panel
-        text_padding = help_panel_height / 6
+        # Calculate text positions based on new panel position
+        text_padding_vertical = help_panel_height / 6 # Vertical spacing between lines
+        text_padding_horizontal = 10 # Horizontal padding inside the box
         for i, text in enumerate([zoom_text, pan_text, alt_pan_text, build_text, reset_text, fs_text]):
             self.game.screen.blit(
                 text, 
-                (self.game.screen_width - help_panel_width - 10, 
-                 self.game.screen_height - help_panel_height + text_padding * i)
+                (hints_x + text_padding_horizontal, 
+                 hints_y + text_padding_vertical * i + 5) # Add small top offset for text
             )
         
         # Show current interaction mode

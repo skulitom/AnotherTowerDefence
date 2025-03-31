@@ -65,6 +65,9 @@ class Tower:
         # Acceleration for Cyclone evolution
         self.current_acceleration = 1.0
         
+        # Targeting
+        self.targeting_priority = "First" # Default targeting priority
+        
     def upgrade(self, upgrade_type):
         """Upgrade the tower along a specific path"""
         if upgrade_type not in upgrade_paths:
@@ -329,6 +332,37 @@ class Tower:
                 size=5
             )
 
+    def find_new_target(self, enemies):
+        """Find a new enemy to target based on the current priority."""
+        in_range_enemies = [
+            enemy for enemy in enemies 
+            if enemy.health > 0 and self.pos.distance_to(enemy.pos) <= self.range
+        ]
+
+        if not in_range_enemies:
+            self.targeting_enemy = None
+            return
+
+        if self.targeting_priority == "First":
+            # Assuming enemy has 'distance_traveled' attribute, higher is further
+            # Target the enemy that has traveled the furthest along the path
+            target = max(in_range_enemies, key=lambda e: e.get_path_progress())
+        elif self.targeting_priority == "Last":
+            # Target the enemy that has traveled the least
+            target = min(in_range_enemies, key=lambda e: e.get_path_progress())
+        elif self.targeting_priority == "Strongest":
+            # Target the enemy with the most current health
+            target = max(in_range_enemies, key=lambda e: e.health)
+        elif self.targeting_priority == "Weakest":
+            # Target the enemy with the least current health
+            target = min(in_range_enemies, key=lambda e: e.health)
+        else: # Default to "First" if priority is invalid
+            target = max(in_range_enemies, key=lambda e: e.get_path_progress())
+            
+        self.targeting_enemy = target
+        # Reset target lock timer when finding a new target
+        self.target_lock_timer = 0.5 # Give a short lock duration
+
     def draw(self, surface, assets, show_range=False, selected=False, camera=None):
         """Draw the tower"""
         # Apply camera transform if provided
@@ -407,4 +441,15 @@ class Tower:
             if self.evolution_name:
                 font = pygame.font.SysFont('arial', 12)
                 text = font.render(self.evolution_name, True, (255, 255, 255))
-                surface.blit(text, (pos.x - text.get_width()//2, pos.y + size + 5)) 
+                surface.blit(text, (pos.x - text.get_width()//2, pos.y + size + 5))
+            
+            # Draw targeting priority if selected
+            if selected:
+                priority_font = pygame.font.SysFont('arial', 14)
+                priority_text = priority_font.render(f"Target: {self.targeting_priority}", True, (220, 220, 255))
+                # Position text below evolution name (if present) or below tower
+                text_y_offset = size + 20 # Default offset below tower center
+                if self.evolved and self.evolution_name:
+                    text_y_offset += 15 # Add more offset if evolution name is shown
+                    
+                surface.blit(priority_text, (pos.x - priority_text.get_width()//2, pos.y + text_y_offset)) 
