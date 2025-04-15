@@ -168,28 +168,38 @@ class TowerInfoPanel:
         surface.blit(title_surf, title_rect)
         
         # Draw tower info with better spacing
-        tower_img = assets["towers"].get(self.tower.tower_type)
-        icon_y_pos = title_rect.bottom + 5  # Position icon closer to title
+        tower_img_list = assets["towers"].get(self.tower.tower_type)
+        tower_img = tower_img_list[0] if tower_img_list else None # Get base sprite (index 0)
+        icon_size = 48 # Increased icon size
+        icon_y_pos = title_rect.bottom + 15  # Position icon slightly lower
+        
+        img_rect = None # Initialize img_rect
+        icon_rect = None # Initialize icon_rect
         
         if tower_img:
+            # Now tower_img is a Surface
             img = pygame.transform.scale(tower_img, (icon_size, icon_size))
             img_rect = img.get_rect(midtop=(self.rect.centerx, icon_y_pos))
             # Add glow behind tower image
-            glow_surf = pygame.Surface((icon_size + 16, icon_size + 16), pygame.SRCALPHA)
-            pygame.draw.circle(glow_surf, (*self.tower.color, 90), (glow_surf.get_width()//2, glow_surf.get_height()//2), icon_size//2)
-            surface.blit(glow_surf, (img_rect.centerx - glow_surf.get_width()//2, img_rect.centery - glow_surf.get_height()//2))
+            glow_radius = icon_size // 2 + 8
+            glow_surf = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surf, (*self.tower.color, 90), (glow_radius, glow_radius), glow_radius)
+            surface.blit(glow_surf, (img_rect.centerx - glow_radius, img_rect.centery - glow_radius))
             surface.blit(img, img_rect)
         else:
+            # Fallback to placeholder icon
             icon = create_element_icon(self.tower.tower_type, icon_size)
             icon_rect = icon.get_rect(midtop=(self.rect.centerx, icon_y_pos))
             # Add glow behind tower icon
-            glow_surf = pygame.Surface((icon_size + 16, icon_size + 16), pygame.SRCALPHA)
-            pygame.draw.circle(glow_surf, (*self.tower.color, 90), (glow_surf.get_width()//2, glow_surf.get_height()//2), icon_size//2)
-            surface.blit(glow_surf, (icon_rect.centerx - glow_surf.get_width()//2, icon_rect.centery - glow_surf.get_height()//2))
+            glow_radius = icon_size // 2 + 8
+            glow_surf = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surf, (*self.tower.color, 90), (glow_radius, glow_radius), glow_radius)
+            surface.blit(glow_surf, (icon_rect.centerx - glow_radius, icon_rect.centery - glow_radius))
             surface.blit(icon, icon_rect)
         
-        # Calculate stats position to be closer to icon
-        stats_y = icon_y_pos + icon_size + 5  # Position stat box right after icon
+        # Calculate stats position based on whether img or icon was drawn
+        reference_rect = img_rect if tower_img else icon_rect
+        stats_y = reference_rect.bottom + 10 # Position stat box right after icon
         stat_x = self.rect.x + 20
         
         # Draw stat box with compact height

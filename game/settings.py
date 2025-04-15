@@ -1,10 +1,10 @@
 tower_types = {
     "Fire": {
-        "color": (255, 0, 0),
+        "color": (255, 80, 60),
         "range": 150,
         "damage": 20,
-        "cooldown": 1.0,  
-        "bullet_speed": 300,  
+        "cooldown": 1.0,
+        "bullet_speed": 300,
         "cost": 50,
         "special_ability": "burn",  # DoT effect
         "special_chance": 0.3,      # 30% chance to apply burn
@@ -14,7 +14,7 @@ tower_types = {
         "description": "Deals damage and has a chance to burn enemies"
     },
     "Water": {
-        "color": (0, 0, 255),
+        "color": (70, 170, 255),
         "range": 150,
         "damage": 15,
         "cooldown": 0.8,
@@ -28,7 +28,7 @@ tower_types = {
         "description": "Medium damage with chance to slow enemies"
     },
     "Air": {
-        "color": (135, 206, 235),
+        "color": (160, 220, 255),
         "range": 175,
         "damage": 10,
         "cooldown": 0.4,
@@ -42,7 +42,7 @@ tower_types = {
         "description": "Rapid fire with chance for chain lightning"
     },
     "Earth": {
-        "color": (139, 69, 19),
+        "color": (170, 120, 60),
         "range": 200,
         "damage": 25,
         "cooldown": 1.5,
@@ -55,7 +55,7 @@ tower_types = {
         "description": "High damage with chance to stun enemies"
     },
     "Darkness": {
-        "color": (128, 0, 128),
+        "color": (100, 60, 140),
         "range": 150,
         "damage": 30,
         "cooldown": 1.4,
@@ -69,7 +69,7 @@ tower_types = {
         "description": "Deals high damage and can weaken enemies"
     },
     "Light": {
-        "color": (255, 255, 0),
+        "color": (255, 255, 140),
         "range": 175,
         "damage": 25,
         "cooldown": 0.6,
@@ -82,7 +82,7 @@ tower_types = {
         "description": "Good all-rounder and reveals invisible enemies"
     },
     "Life": {
-        "color": (255, 105, 180),
+        "color": (255, 170, 200),
         "range": 150,
         "damage": 15,
         "cooldown": 1.2,
@@ -100,28 +100,28 @@ tower_types = {
 # Enemy types with different properties
 enemy_types = {
     "Normal": {
-        "color": (0, 200, 0),
+        "color": (100, 220, 120),
         "health_multiplier": 1.0,
         "speed_multiplier": 1.0,
         "reward_multiplier": 1.0,
         "special_ability": None
     },
     "Fast": {
-        "color": (200, 200, 0),
+        "color": (255, 220, 80),
         "health_multiplier": 0.7,
         "speed_multiplier": 1.5,
         "reward_multiplier": 1.2,
         "special_ability": None
     },
     "Tank": {
-        "color": (100, 100, 100),
+        "color": (140, 140, 140),
         "health_multiplier": 2.5,
         "speed_multiplier": 0.7,
         "reward_multiplier": 1.5,
         "special_ability": None
     },
     "Healing": {
-        "color": (0, 200, 200),
+        "color": (80, 220, 220),
         "health_multiplier": 1.2,
         "speed_multiplier": 0.9,
         "reward_multiplier": 1.7,
@@ -130,7 +130,7 @@ enemy_types = {
         "heal_radius": 80
     },
     "Invisible": {
-        "color": (200, 200, 200),
+        "color": (200, 200, 220),
         "health_multiplier": 0.8,
         "speed_multiplier": 1.1,
         "reward_multiplier": 1.8,
@@ -139,7 +139,7 @@ enemy_types = {
         "cloak_cooldown": 5.0
     },
     "Boss": {
-        "color": (200, 0, 0),
+        "color": (240, 60, 60),
         "health_multiplier": 10.0,
         "speed_multiplier": 0.5,
         "reward_multiplier": 5.0,
@@ -250,4 +250,4 @@ wave_templates = [
         "spawn_delay": 0.6,
         "reward_bonus": 500
     }
-] 
+]

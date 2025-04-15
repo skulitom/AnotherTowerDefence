@@ -54,7 +54,6 @@ class Tower:
         self.synergy_damage_multiplier = 1.0
         
         # Weather effects tracking
-        self.weather_affected = None
         self.orig_damage = self.damage
         self.orig_cooldown = self.cooldown
         self.orig_range = self.range
@@ -379,7 +378,19 @@ class Tower:
         # Calculate pulse effect (makes tower "breathe")
         pulse = math.sin(pygame.time.get_ticks() * 0.005 + self.pulse_offset) * 0.2 + 1.0
         size = int(self.radius * pulse)
-        
+
+        # Draw drop shadow
+        shadow_surface = pygame.Surface((size*2+8, size*2+8), pygame.SRCALPHA)
+        pygame.draw.circle(shadow_surface, (0, 0, 0, 80), (size+4, size+8), size)
+        surface.blit(shadow_surface, (int(pos.x)-size-4, int(pos.y)-size))
+
+        # Draw radial glow
+        glow_surface = pygame.Surface((size*4, size*4), pygame.SRCALPHA)
+        for i in range(8, 0, -1):
+            alpha = int(18 * i)
+            pygame.draw.circle(glow_surface, self.color + (alpha,), (size*2, size*2), size+i*2)
+        surface.blit(glow_surface, (int(pos.x)-size*2, int(pos.y)-size*2), special_flags=pygame.BLEND_ADD)
+
         # Draw tower body
         pygame.draw.circle(surface, self.color, (int(pos.x), int(pos.y)), size)
         

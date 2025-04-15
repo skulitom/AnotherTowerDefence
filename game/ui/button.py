@@ -1,9 +1,14 @@
 import pygame
 from game.utils import create_element_icon
+from game.ui.ui_theme import (
+    BUTTON_BG, BUTTON_BG_HOVER, BUTTON_BG_ACTIVE, ACCENT_COLOR, ACCENT_COLOR_HOVER, ACCENT_COLOR_ACTIVE,
+    TEXT_COLOR, SUBTLE_TEXT, BUTTON_BORDER_RADIUS, FONT_NAME, BODY_FONT_SIZE, SHADOW_COLOR, ICON_TEXT_SPACING,
+    BORDER_COLOR
+)
 
 class Button:
-    def __init__(self, rect, text, color=(100, 100, 200), hover_color=(120, 120, 255), text_color=(255, 255, 255), 
-                 icon=None, icon_size=None, tooltip=None, enabled=True, font_size=18, assets=None):
+    def __init__(self, rect, text, color=BUTTON_BG, hover_color=BUTTON_BG_HOVER, text_color=TEXT_COLOR,
+                 icon=None, icon_size=None, tooltip=None, enabled=True, font_size=BODY_FONT_SIZE, assets=None):
         self.rect = rect
         self.text = text
         self.color = color
@@ -14,181 +19,111 @@ class Button:
         self.tooltip = tooltip
         self.enabled = enabled
         self.hover = False
-        # Get fonts from assets, with fallbacks
-        if assets and "fonts" in assets:
-            self.font = assets["fonts"].get("body", pygame.font.SysFont(None, font_size))
-            self.tooltip_font = assets["fonts"].get("body_small", pygame.font.SysFont(None, 16))
-            # Adjust main font size if needed (could be refined)
-            # For simplicity, we might rely on panels passing correct initial font_size or use a dedicated button font
-            # self.font = pygame.font.Font(self.font.name, font_size) # Attempt to resize (might not work reliably with SysFont)
-        else:
-            # Fallback if assets not provided
-            self.font = pygame.font.SysFont(None, font_size)
-            self.tooltip_font = pygame.font.SysFont(None, 16)
-            
+        # Use modern font
+        self.font = pygame.font.SysFont(FONT_NAME, font_size, bold=True)
+        self.tooltip_font = pygame.font.SysFont(FONT_NAME, 14)
         self.pressed = False
         self.press_time = 0
-        self.shadow_offset = 2  # Reduced shadow for sleeker look
-        self.border_radius = 6  # Slightly smaller radius for modern look
-        
-        # Cache for pre-rendered button surfaces
+        self.shadow_offset = 4  # More pronounced shadow
+        self.border_radius = BUTTON_BORDER_RADIUS
         self._cached_surfaces = {}
-        self._last_state = None  # Track state to detect changes
-        
+        self._last_state = None
+
     def _create_button_surface(self, state):
         """Create and cache button surface for a specific state (enabled, hover, pressed)"""
         button_surf = pygame.Surface((self.rect.width, self.rect.height), pygame.SRCALPHA)
-        
+        # Draw solid rounded background
         if state == "disabled":
-            # Disabled state - darker gray gradient
-            color_top = (50, 50, 60)
-            color_bottom = (35, 35, 45)
+            color_top = (28, 30, 36)
+            color_bottom = (20, 22, 26)
         elif state == "pressed":
-            # Pressed state - slightly darker but still clearly visible
-            color_top = (max(0, self.color[0]-20), max(0, self.color[1]-20), max(0, self.color[2]-20))
-            color_bottom = (max(0, self.color[0]-30), max(0, self.color[1]-30), max(0, self.color[2]-30))
+            color_top = BUTTON_BG_ACTIVE
+            color_bottom = BUTTON_BG
         elif state == "hover":
-            # Hover state - brighter gradient
-            color_top = (self.hover_color[0], self.hover_color[1], self.hover_color[2])
-            color_bottom = (max(0, self.hover_color[0]-30), max(0, self.hover_color[1]-30), max(0, self.hover_color[2]-30))
-        else:  # normal
-            # Normal state - standard gradient
-            color_top = (self.color[0], self.color[1], self.color[2])
-            color_bottom = (max(0, self.color[0]-30), max(0, self.color[1]-30), max(0, self.color[2]-30))
-        
-        # Draw gradient background
+            color_top = BUTTON_BG_HOVER
+            color_bottom = BUTTON_BG
+        else:
+            color_top = self.color
+            color_bottom = (max(0, self.color[0]-8), max(0, self.color[1]-8), max(0, self.color[2]-8))
+        grad_rect = pygame.Rect(0, 0, self.rect.width, self.rect.height)
+        # Gradient fill, but always fully opaque
+        temp_bg = pygame.Surface((self.rect.width, self.rect.height), pygame.SRCALPHA)
         for y in range(self.rect.height):
             progress = y / self.rect.height
             r = int(color_top[0] * (1 - progress) + color_bottom[0] * progress)
             g = int(color_top[1] * (1 - progress) + color_bottom[1] * progress)
             b = int(color_top[2] * (1 - progress) + color_bottom[2] * progress)
-            pygame.draw.line(button_surf, (r, g, b), (0, y), (self.rect.width, y))
-        
-        # Draw border with rounded corners
-        pygame.draw.rect(button_surf, (0, 0, 0, 0), (0, 0, self.rect.width, self.rect.height), border_radius=self.border_radius)
-        
-        # Add highlight to the top edge for subtle 3D effect (except for pressed state)
-        if state != "pressed" and state != "disabled":
-            highlight_color = (255, 255, 255, 40)  # More subtle highlight
-            pygame.draw.rect(button_surf, highlight_color, (2, 2, self.rect.width-4, 2), border_radius=self.border_radius)
-        
-        # Draw border
-        if state == "pressed":
-            border_color = (100, 100, 150, 80)  # More visible border for pressed state
-        elif state == "hover":
-            border_color = (180, 180, 255, 70)
-        else:
-            border_color = (80, 80, 120, 50)
-        pygame.draw.rect(button_surf, border_color, (0, 0, self.rect.width, self.rect.height), 1, border_radius=self.border_radius)
-        
+            pygame.draw.line(temp_bg, (r, g, b, 255), (0, y), (self.rect.width, y))  # Force alpha=255
+        # Mask to rounded rect (full alpha)
+        mask = pygame.Surface((self.rect.width, self.rect.height), pygame.SRCALPHA)
+        pygame.draw.rect(mask, (255,255,255,255), grad_rect, border_radius=self.border_radius)
+        temp_bg.blit(mask, (0,0), special_flags=pygame.BLEND_RGBA_MULT)
+        button_surf.blit(temp_bg, (0,0))
+        # Border
+        border_col = ACCENT_COLOR if state in ("hover", "pressed") else BORDER_COLOR
+        pygame.draw.rect(button_surf, border_col, grad_rect, 2, border_radius=self.border_radius)
+        # Soft glow for hover/active
+        if state == "hover":
+            glow = pygame.Surface((self.rect.width, self.rect.height), pygame.SRCALPHA)
+            pygame.draw.rect(glow, ACCENT_COLOR_HOVER + (70,), grad_rect, border_radius=self.border_radius)
+            button_surf.blit(glow, (0,0), special_flags=pygame.BLEND_RGBA_ADD)
+        elif state == "pressed":
+            glow = pygame.Surface((self.rect.width, self.rect.height), pygame.SRCALPHA)
+            pygame.draw.rect(glow, ACCENT_COLOR_ACTIVE + (90,), grad_rect, border_radius=self.border_radius)
+            button_surf.blit(glow, (0,0), special_flags=pygame.BLEND_RGBA_ADD)
         return button_surf
-    
+
     def _get_current_state(self):
         """Get the current button state as a string"""
+        import pygame
+        mouse_pressed = pygame.mouse.get_pressed()[0]
+        mouse_pos = pygame.mouse.get_pos()
         if not self.enabled:
             return "disabled"
-        elif self.pressed:
+        elif self.rect.collidepoint(mouse_pos) and mouse_pressed:
             return "pressed"
-        elif self.hover:
+        elif self.rect.collidepoint(mouse_pos):
             return "hover"
         else:
             return "normal"
-        
+
     def draw(self, surface):
-        # === State Management ===
-        # 1. Check timer to reset internal pressed flag
-        if self.pressed and pygame.time.get_ticks() - self.press_time > 200:
-            self.pressed = False # Reset internal flag
-
-        # 2. Determine hover status
-        mouse_pos = pygame.mouse.get_pos()
-        is_hovering = self.rect.collidepoint(mouse_pos) and self.enabled
-        self.hover = is_hovering # Keep self.hover updated for tooltip
-
-        # 3. Determine the definitive visual state for THIS FRAME
-        current_visual_state = "normal"
-        if not self.enabled:
-            current_visual_state = "disabled"
-        elif self.pressed: # This flag is True only for the 200ms after a click
-            current_visual_state = "pressed"
-        elif is_hovering: # Only if not disabled and not currently in the pressed state
-            current_visual_state = "hover"
-        
-        # === Cache Management ===
-        # If the determined visual state is different from the last one rendered, regenerate cache
-        if current_visual_state != self._last_state:
-            print(f"Button '{self.text}': Visual state changed ('{self._last_state}' -> '{current_visual_state}'). Regenerating surface.")
-            # Clear the specific old state if needed, though regenerating the new one is key
-            # self._cached_surfaces.pop(self._last_state, None)
-            self._cached_surfaces[current_visual_state] = self._create_button_surface(current_visual_state)
-            self._last_state = current_visual_state # IMPORTANT: Update last state *after* potential regeneration
-        
-        # Use the cached surface for the current visual state
-        # If state didn't change and cache exists, this uses the existing cache
-        # If state changed or cache didn't exist, it uses the newly generated surface
-        if current_visual_state not in self._cached_surfaces:
-             # Fallback just in case - should not happen with above logic
-             print(f"Error: Button '{self.text}' surface for state '{current_visual_state}' not found in cache after check!")
-             self._cached_surfaces[current_visual_state] = self._create_button_surface(current_visual_state)
-        button_surf = self._cached_surfaces[current_visual_state]
-
-        # === Drawing ===
-        is_visually_pressed = (current_visual_state == "pressed")
-        
-        # Draw shadow (only for hover or normal states)
-        if current_visual_state == "normal" or current_visual_state == "hover":
-            shadow_rect = pygame.Rect(self.rect.x + self.shadow_offset, 
-                                     self.rect.y + self.shadow_offset,
-                                     self.rect.width, self.rect.height)
-            pygame.draw.rect(surface, (10, 10, 15, 150), shadow_rect, border_radius=self.border_radius)
-        
-        # Blit button surface with offset for pressed state
-        blit_pos = (self.rect.x + 1, self.rect.y + 1) if is_visually_pressed else self.rect.topleft
-        surface.blit(button_surf, blit_pos)
-            
-        # Draw button text with shadow (adjusted for offset)
-        text_color = self.text_color if self.enabled else (150, 150, 150)
-        shadow_color = (max(0, text_color[0]-80), max(0, text_color[1]-80), max(0, text_color[2]-80))
-        if not self.enabled:
-             shadow_color = (70, 70, 70)
-             
-        text_surf = self.font.render(self.text, True, text_color)
-        shadow_surf = self.font.render(self.text, True, shadow_color)
-        
-        offset_x = 1 if is_visually_pressed else 0
-        offset_y = 1 if is_visually_pressed else 0
-        shadow_offset_x = offset_x + 1
-        shadow_offset_y = offset_y + 1
-        
-        # Position text/icon (same logic)
+        state = self._get_current_state()
+        if state != self._last_state or state not in self._cached_surfaces:
+            self._cached_surfaces[state] = self._create_button_surface(state)
+            self._last_state = state
+        button_surf = self._cached_surfaces[state].copy()
+        # Icon and text layout with spacing and padding
+        content_width = 0
+        icon_surf = None
+        text_surf = None
         if self.icon:
-            # Icon drawing logic (uses offset_x, offset_y, shadow_offset_x, shadow_offset_y)
-            if isinstance(self.icon, pygame.Surface):
-                icon = self.icon
-                if self.icon_size:
-                    icon = pygame.transform.scale(icon, self.icon_size)
+            if isinstance(self.icon, str):
+                icon_surf = create_element_icon(self.icon, self.icon_size or 24)
             else:
-                icon = create_element_icon(self.icon, 24)
-                
-            icon_rect = icon.get_rect(midleft=(self.rect.x + 10 + offset_x, self.rect.centery + offset_y))
-            surface.blit(icon, icon_rect)
-            
-            text_rect = text_surf.get_rect(midleft=(icon_rect.right + 10, self.rect.centery + offset_y))
-            shadow_rect = shadow_surf.get_rect(midleft=(icon_rect.right + 10 + shadow_offset_x - offset_x, 
-                                                      self.rect.centery + shadow_offset_y))
-            surface.blit(shadow_surf, shadow_rect)
-            surface.blit(text_surf, text_rect)
-        else:
-            # Text-only drawing logic (uses offset_x, offset_y, shadow_offset_x, shadow_offset_y)
-            text_rect = text_surf.get_rect(center=(self.rect.centerx + offset_x, self.rect.centery + offset_y))
-            shadow_rect = shadow_surf.get_rect(center=(self.rect.centerx + shadow_offset_x, self.rect.centery + shadow_offset_y))
-            surface.blit(shadow_surf, shadow_rect)
-            surface.blit(text_surf, text_rect)
-        
-        # Pulse animation is disabled
+                icon_surf = pygame.transform.smoothscale(self.icon, (self.icon_size, self.icon_size)) if self.icon_size else self.icon
+            content_width += icon_surf.get_width()
+        if self.text:
+            text_surf = self.font.render(self.text, True, self.text_color)
+            content_width += text_surf.get_width()
+        if self.icon and self.text:
+            content_width += ICON_TEXT_SPACING
+        # Center content
+        x = (self.rect.width - content_width) // 2
+        y = (self.rect.height - (icon_surf.get_height() if icon_surf else (text_surf.get_height() if text_surf else 0))) // 2
+        # Draw icon
+        if icon_surf:
+            icon_rect = icon_surf.get_rect()
+            icon_rect.topleft = (x, y)
+            button_surf.blit(icon_surf, icon_rect)
+            x += icon_surf.get_width() + (ICON_TEXT_SPACING if self.text else 0)
+        # Draw text
+        if text_surf:
+            text_rect = text_surf.get_rect()
+            text_rect.topleft = (x, y + (icon_surf.get_height() - text_surf.get_height())//2 if icon_surf and text_surf else y)
+            button_surf.blit(text_surf, text_rect)
+        surface.blit(button_surf, self.rect.topleft)
 
-        # Draw press pulse animation (only when visually pressed) - TEMPORARILY DISABLED
-            
     def get_tooltip_surface(self, screen_width, screen_height):
         """If hovered and has tooltip, return rendered tooltip surface and rect, else None."""
         if self.hover and self.tooltip:
@@ -263,4 +198,4 @@ class Button:
             print(f"Button '{self.text}' clicked! Setting pressed state.")
             # Cache invalidation will be handled by draw based on state change
 
-        return clicked_now 
+        return clicked_now

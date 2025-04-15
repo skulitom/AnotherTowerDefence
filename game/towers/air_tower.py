@@ -267,136 +267,73 @@ class AirTower(BaseTower):
     def draw_effects(self, surface, screen_pos, screen_radius, camera=None):
         """Draw air tower specific magical effects"""
         zoom_factor = camera.zoom if camera else 1
+        current_time_ms = pygame.time.get_ticks()
         
-        # Draw swirling wind effect
-        for i in range(3):
-            angle = ((pygame.time.get_ticks() / 500) + i * 2.0944 + self.wind_direction/60) % 6.28
-            size = screen_radius + 8
-            x = screen_pos.x + math.cos(angle) * size * zoom_factor
-            y = screen_pos.y + math.sin(angle) * size * zoom_factor
+        # 1. Enhanced Swirling Wind Effect (More clouds, faster rotation)
+        cloud_count = 5 # Increased from 3
+        base_rotation_speed = 0.0015 # Slightly faster base speed
+        for i in range(cloud_count):
+            angle = ((current_time_ms * base_rotation_speed) + i * (6.28 / cloud_count) + self.wind_direction / 180 * math.pi) % 6.28
+            orbit_radius = screen_radius * (1.2 + 0.3 * math.sin(current_time_ms * 0.001 + i)) # More dynamic orbit radius
+            x = screen_pos.x + math.cos(angle) * orbit_radius * zoom_factor
+            y = screen_pos.y + math.sin(angle) * orbit_radius * zoom_factor
             
-            cloud_radius = (3 + math.sin(pygame.time.get_ticks() / 200 + i) * 1) * zoom_factor
-            cloud_surf = pygame.Surface((int(cloud_radius * 2), int(cloud_radius * 2)), pygame.SRCALPHA)
-            pygame.draw.circle(cloud_surf, (200, 230, 255, 150), (cloud_radius, cloud_radius), cloud_radius)
-            surface.blit(cloud_surf, (int(x - cloud_radius), int(y - cloud_radius)))
+            cloud_radius = (3 + math.sin(current_time_ms * 0.002 + i) * 1.5) * zoom_factor # Slightly larger clouds
+            if cloud_radius > 1:
+                cloud_surf = pygame.Surface((int(cloud_radius * 2), int(cloud_radius * 2)), pygame.SRCALPHA)
+                pygame.draw.circle(cloud_surf, (200, 230, 255, 120), (cloud_radius, cloud_radius), cloud_radius) # Slightly less opaque
+                surface.blit(cloud_surf, (int(x - cloud_radius), int(y - cloud_radius)))
         
-        # Draw magical cloud formations
-        current_time = pygame.time.get_ticks() / 1000
-        for cloud in self.clouds:
-            # Calculate cloud position with vertical bobbing
-            cloud_x = screen_pos.x + math.cos(math.radians(cloud['angle'])) * cloud['distance'] * zoom_factor
-            cloud_y = screen_pos.y + math.sin(math.radians(cloud['angle'])) * cloud['distance'] * zoom_factor
+        # 2. Base Vortex Effect (New)
+        vortex_radius = screen_radius * 0.9
+        vortex_segments = 8
+        vortex_rotation_speed = -0.003 # Rotate opposite to clouds
+        for i in range(vortex_segments):
+            angle1 = ((current_time_ms * vortex_rotation_speed) + i * (6.28 / vortex_segments)) % 6.28
+            angle2 = ((current_time_ms * vortex_rotation_speed) + (i + 0.5) * (6.28 / vortex_segments)) % 6.28 # Offset for curve
             
-            # Cloud size varies with air magic level
-            cloud_size = cloud['size'] * zoom_factor * self.air_magic_level
+            start_radius_factor = 0.3 + 0.7 * (abs(math.sin(current_time_ms * 0.0005 + i))) # Pulsating start radius
+            end_radius_factor = 1.0
             
-            # Draw cloud with multiple overlapping circles
-            alpha = int(200 * cloud['opacity'])
-            for j in range(3):
-                offset_x = random.uniform(-cloud_size * 0.3, cloud_size * 0.3)
-                offset_y = random.uniform(-cloud_size * 0.3, cloud_size * 0.3)
-                
-                pygame.draw.circle(surface, (200, 230, 255, alpha), 
-                                 (int(cloud_x + offset_x), int(cloud_y + offset_y)), 
-                                 int(cloud_size))
-        
-        # Draw lightning effect between clouds
-        if self.lightning_active and len(self.lightning_points) >= 2:
-            # Draw with a glow
-            for glow in range(2):
-                width = 3 if glow == 0 else 1
-                color = (180, 220, 255, 200) if glow == 0 else (220, 240, 255, 255)
-                
-                for i in range(len(self.lightning_points) - 1):
-                    start = self.lightning_points[i]
-                    end = self.lightning_points[i+1]
-                    
-                    if camera:
-                        start_screen = camera.apply(start[0], start[1])
-                        end_screen = camera.apply(end[0], end[1])
-                        pygame.draw.line(surface, color, start_screen, end_screen, 
-                                       max(1, int(width * camera.zoom)))
-                    else:
-                        pygame.draw.line(surface, color, start, end, width)
-        
-        # Draw tornado effect
-        if self.tornado_active:
-            tornado_radius = self.tornado_radius * self.air_magic_level * zoom_factor
+            start_x = screen_pos.x + math.cos(angle1) * vortex_radius * start_radius_factor * zoom_factor
+            start_y = screen_pos.y + math.sin(angle1) * vortex_radius * start_radius_factor * zoom_factor
+            end_x = screen_pos.x + math.cos(angle2) * vortex_radius * end_radius_factor * zoom_factor
+            end_y = screen_pos.y + math.sin(angle2) * vortex_radius * end_radius_factor * zoom_factor
             
-            # Draw circular swirl effect
-            swirl_layers = 5
-            for layer in range(swirl_layers):
-                layer_progress = layer / swirl_layers
-                radius = tornado_radius * (1 - layer_progress * 0.7)
-                alpha = int(150 * (1 - layer_progress))
-                
-                # Calculate rotation speed - faster toward the center
-                rotation = self.tornado_timer * 180 * (1 + layer_progress)
-                
-                # Draw swirling pattern
-                for arc in range(3):
-                    arc_rotation = rotation + arc * 120
-                    start_angle = math.radians(arc_rotation)
-                    end_angle = math.radians(arc_rotation + 60)
-                    
-                    arc_surf = pygame.Surface((int(radius * 2), int(radius * 2)), pygame.SRCALPHA)
-                    pygame.draw.arc(arc_surf, (180, 220, 255, alpha), 
-                                  (0, 0, int(radius * 2), int(radius * 2)), 
-                                  start_angle, end_angle, 
-                                  max(1, int(3 * zoom_factor * (1 - layer_progress))))
-                    
-                    surface.blit(arc_surf, (int(screen_pos.x - radius), int(screen_pos.y - radius)))
+            mid_x = (start_x + end_x) / 2 + math.cos(angle1 + math.pi/2) * vortex_radius * 0.2 * zoom_factor # Control point for curve
+            mid_y = (start_y + end_y) / 2 + math.sin(angle1 + math.pi/2) * vortex_radius * 0.2 * zoom_factor
+
+            points = [(start_x, start_y), (mid_x, mid_y), (end_x, end_y)]
             
-            # Add wind lines showing air flow
-            line_count = 8
-            for i in range(line_count):
-                angle = math.radians(i * (360 / line_count) + pygame.time.get_ticks() / 20)
-                inner_x = screen_pos.x + math.cos(angle) * (tornado_radius * 0.3)
-                inner_y = screen_pos.y + math.sin(angle) * (tornado_radius * 0.3)
-                outer_x = screen_pos.x + math.cos(angle) * tornado_radius
-                outer_y = screen_pos.y + math.sin(angle) * tornado_radius
-                
-                # Draw line with gradient alpha
-                segments = 5
-                for j in range(segments):
-                    progress = j / segments
-                    next_progress = (j+1) / segments
-                    
-                    start_x = inner_x + (outer_x - inner_x) * progress
-                    start_y = inner_y + (outer_y - inner_y) * progress
-                    end_x = inner_x + (outer_x - inner_x) * next_progress
-                    end_y = inner_y + (outer_y - inner_y) * next_progress
-                    
-                    alpha = int(150 * (1 - progress))
-                    pygame.draw.line(surface, (200, 230, 255, alpha),
-                                   (int(start_x), int(start_y)),
-                                   (int(end_x), int(end_y)),
-                                   max(1, int(2 * zoom_factor * (1 - progress))))
-        
-        # Draw ambient wind lines
-        wind_count = int(6 * self.air_magic_level)
-        for i in range(wind_count):
-            if random.random() < 0.1:
-                # Random position around tower
-                angle = random.uniform(0, math.pi * 2)
-                distance = random.uniform(screen_radius, screen_radius * 3)
-                x = screen_pos.x + math.cos(angle) * distance
-                y = screen_pos.y + math.sin(angle) * distance
-                
-                # Line follows wind direction
-                wind_angle = math.radians(self.wind_direction)
-                length = random.uniform(10, 30) * zoom_factor
-                end_x = x + math.cos(wind_angle) * length
-                end_y = y + math.sin(wind_angle) * length
-                
-                # Draw wind line
-                alpha = random.randint(30, 80)
-                pygame.draw.line(surface, (220, 240, 255, alpha),
-                               (int(x), int(y)),
-                               (int(end_x), int(end_y)),
-                               max(1, int(1 * zoom_factor)))
-                               
-        # Draw crackling energy at tower top
+            # Draw curved lines for vortex
+            try:
+                if all(0 <= p[0] < surface.get_width() and 0 <= p[1] < surface.get_height() for p in points):
+                     # Crude bezier approximation with lines or use pygame.draw.aalines if thicker/smoother look desired
+                    pygame.draw.aaline(surface, (180, 210, 230, 80), points[0], points[1])
+                    pygame.draw.aaline(surface, (180, 210, 230, 80), points[1], points[2])
+            except IndexError: # Handle potential index errors during rapid changes
+                pass 
+
+        # 3. Wind Gust Particles (New / Enhanced from old random lines)
+        if random.random() < 0.15: # Increased frequency
+            gust_angle = math.radians(self.wind_direction + random.uniform(-15, 15)) # Angle based on wind direction + spread
+            start_dist = screen_radius * 1.1
+            end_dist = screen_radius * random.uniform(2.5, 4.0) # Gusts travel further
+            
+            start_x = screen_pos.x + math.cos(gust_angle) * start_dist * zoom_factor
+            start_y = screen_pos.y + math.sin(gust_angle) * start_dist * zoom_factor
+            end_x = screen_pos.x + math.cos(gust_angle) * end_dist * zoom_factor
+            end_y = screen_pos.y + math.sin(gust_angle) * end_dist * zoom_factor
+            
+            # Draw gust line (thin and fast)
+            gust_alpha = random.randint(60, 120)
+            gust_width = max(1, int(1 * zoom_factor))
+            pygame.draw.line(surface, (220, 240, 255, gust_alpha), 
+                           (int(start_x), int(start_y)), 
+                           (int(end_x), int(end_y)), 
+                           gust_width)
+
+        # Existing Crackling Energy Effect (Keep as is or modify if desired)
         if self.level >= 2:
             arc_count = 3 + self.level
             for i in range(arc_count):

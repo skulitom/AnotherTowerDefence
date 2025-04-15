@@ -75,13 +75,38 @@ def load_assets():
         assets["fonts"]["body_small"] = pygame.font.SysFont(None, 20) # Default fallback
 
     # Try to load tower images
+    MAX_TOWER_VISUAL_LEVELS = 5 # Define how many visual levels to check for
     for tower_type in tower_types:
-        try:
-            assets["towers"][tower_type] = pygame.image.load(f"assets/{tower_type.lower()}.png").convert_alpha()
-        except (pygame.error, FileNotFoundError):
-            # Generate placeholder tower icon
-            assets["towers"][tower_type] = create_element_icon(tower_type, 30)
-    
+        tower_sprites = []
+        base_sprite = None
+        for level in range(1, MAX_TOWER_VISUAL_LEVELS + 1):
+            try:
+                sprite_path = f"assets/{tower_type.lower()}_{level}.png"
+                sprite = pygame.image.load(sprite_path).convert_alpha()
+                tower_sprites.append(sprite)
+                if level == 1:
+                    base_sprite = sprite # Keep track of the base sprite
+            except (pygame.error, FileNotFoundError):
+                # If level 1 sprite is missing, generate placeholder
+                if level == 1:
+                    print(f"Warning: Base sprite 'assets/{tower_type.lower()}_1.png' not found. Generating placeholder.")
+                    placeholder = create_element_icon(tower_type, 30)
+                    tower_sprites.append(placeholder)
+                    base_sprite = placeholder
+                # If higher level sprite is missing, reuse the previous level's sprite (or base placeholder)
+                else:
+                    print(f"Info: Sprite 'assets/{tower_type.lower()}_{level}.png' not found. Reusing level {len(tower_sprites)} sprite for {tower_type}.")
+                    # Reuse the last successfully loaded/created sprite
+                    tower_sprites.append(tower_sprites[-1] if tower_sprites else create_element_icon(tower_type, 30))
+
+        # Store the list of sprites (or placeholders)
+        assets["towers"][tower_type] = tower_sprites
+        
+        # If no sprites were loaded at all (shouldn't happen with placeholders, but as a safeguard)
+        if not assets["towers"][tower_type]:
+             print(f"Error: Could not load or generate any sprites for tower type {tower_type}. Using single placeholder.")
+             assets["towers"][tower_type] = [create_element_icon(tower_type, 30)] * MAX_TOWER_VISUAL_LEVELS
+
     # Try to load enemy image
     try:
         assets["enemy"] = pygame.image.load("assets/enemy.png").convert_alpha()
@@ -176,6 +201,13 @@ def load_assets():
             pygame.draw.circle(bg_surf, (bright, bright, bright+10), (x, y), 1)
         
         assets["background"] = bg_surf
+
+        # Add vignette overlay for mood
+        vignette = pygame.Surface(bg_size, pygame.SRCALPHA)
+        for i in range(1, int(bg_size[0]*0.7)):
+            alpha = int(180 * (i/(bg_size[0]*0.7))**2)
+            pygame.draw.circle(vignette, (0,0,0,alpha), (bg_size[0]//2, bg_size[1]//2), i, 2)
+        bg_surf.blit(vignette, (0,0), special_flags=pygame.BLEND_RGBA_SUB)
         
         # Try to save the generated background
         try:

@@ -379,42 +379,98 @@ class Enemy:
             pos = camera.world_to_screen(self.pos)
             radius = int(self.radius * camera.zoom)
         
-        # Draw trail
-        if len(self.trail_positions) > 1:
-            points = []
-            for trail_pos in self.trail_positions:
-                if camera:
-                    screen_pos = camera.world_to_screen(trail_pos)
-                    points.append((int(screen_pos[0]), int(screen_pos[1])))
-                else:
-                    points.append((int(trail_pos.x), int(trail_pos.y)))
-            
-            # Draw fading trail
-            alpha_step = 150 / len(points)
-            for i in range(len(points) - 1):
-                alpha = int(50 + i * alpha_step)
-                trail_color = self.color + (alpha,) if len(self.color) == 3 else self.color
-                pygame.draw.line(surface, trail_color, points[i], points[i+1], max(1, radius // 3))
-        
+        # Pulsation effect
+        pulse_factor = 1.0 + math.sin(pygame.time.get_ticks() * 0.005 + self.pulse_offset) * 0.1
+        pulsating_radius = max(1, int(radius * pulse_factor))
+
         # Prepare enemy color with transparency
         if len(self.color) == 3:
             draw_color = self.color + (self.alpha,)
         else:
+            # Use base color but apply current alpha
             draw_color = self.color[:3] + (self.alpha,)
         
         # Flash effect when hit
         if self.hit_flash > 0:
-            draw_color = (255, 255, 255, self.alpha)
+            # Blend white flash with base color for a less harsh effect
+            flash_amount = min(1.0, self.hit_flash / 0.2) # Assuming hit_flash duration is ~0.2s
+            flash_color = (
+                int(draw_color[0] + (255 - draw_color[0]) * flash_amount),
+                int(draw_color[1] + (255 - draw_color[1]) * flash_amount),
+                int(draw_color[2] + (255 - draw_color[2]) * flash_amount),
+                self.alpha
+            )
+            final_draw_color = flash_color
+        else:
+            final_draw_color = draw_color
+
+        # --- Start Shape and Type-Specific Modifications ---
+        num_sides = 6 # Base shape: hexagon
+        points = []
+        current_time_sec = pygame.time.get_ticks() / 1000.0
+        base_angle_offset = self.pulse_offset
         
-        # Draw enemy as transparent circle
-        pygame.draw.circle(surface, draw_color, (int(pos[0]), int(pos[1])), radius)
+        # Make Bosses larger
+        display_radius = pulsating_radius * 1.5 if self.enemy_type == "Boss" else pulsating_radius
         
-        # Draw outline
-        pygame.draw.circle(surface, (100, 100, 100, self.alpha), (int(pos[0]), int(pos[1])), radius, 1)
-        
-        # Draw shield if present
+        for i in range(num_sides):
+            angle = base_angle_offset + i * (2 * math.pi / num_sides)
+            # Slight radius variation per vertex for irregularity
+            vertex_radius_factor = 1.0 + 0.08 * math.sin(current_time_sec * 1.5 + i * math.pi)
+            current_radius = display_radius * vertex_radius_factor
+            
+            x = pos[0] + math.cos(angle) * current_radius
+            y = pos[1] + math.sin(angle) * current_radius
+            points.append((int(x), int(y)))
+
+        # Draw drop shadow
+        shadow_surface = pygame.Surface((display_radius*2+8, display_radius*2+8), pygame.SRCALPHA)
+        pygame.draw.circle(shadow_surface, (0, 0, 0, 70), (display_radius+4, display_radius+8), display_radius)
+        surface.blit(shadow_surface, (int(pos[0])-display_radius-4, int(pos[1])-display_radius))
+
+        # Draw radial glow
+        glow_surface = pygame.Surface((display_radius*4, display_radius*4), pygame.SRCALPHA)
+        for i in range(8, 0, -1):
+            alpha = int(16 * i)
+            pygame.draw.circle(glow_surface, self.color + (alpha,), (display_radius*2, display_radius*2), display_radius+i*2)
+        surface.blit(glow_surface, (int(pos[0])-display_radius*2, int(pos[1])-display_radius*2), special_flags=pygame.BLEND_ADD)
+
+        # Draw enemy body as polygon
+        if len(points) >= 3:
+            pygame.draw.polygon(surface, final_draw_color, points)
+
+            # Draw internal rotating element - speed varies by type
+            if self.enemy_type == "Fast":
+                inner_angle = current_time_sec * 4.0 # Faster rotation
+            elif self.enemy_type == "Tank" or self.enemy_type == "Boss":
+                inner_angle = current_time_sec * 1.0 # Slower rotation
+            else:
+                inner_angle = current_time_sec * 1.8 # Normal rotation
+                
+            inner_len = display_radius * 0.5 # Length of the rotating lines
+            line_color = (min(255, final_draw_color[0]+50), min(255, final_draw_color[1]+50), min(255, final_draw_color[2]+50), self.alpha) # Brighter internal line
+            line_width = max(1, display_radius // 8)
+
+            for i in range(2): # Draw two perpendicular lines
+                rot_angle = inner_angle + i * (math.pi / 2)
+                x1 = pos[0] + math.cos(rot_angle) * inner_len
+                y1 = pos[1] + math.sin(rot_angle) * inner_len
+                x2 = pos[0] - math.cos(rot_angle) * inner_len
+                y2 = pos[1] - math.sin(rot_angle) * inner_len
+                pygame.draw.line(surface, line_color, (int(x1), int(y1)), (int(x2), int(y2)), line_width)
+
+            # Draw outline - thicker for Tank/Boss
+            outline_color = (100, 100, 100, self.alpha)
+            if self.enemy_type == "Tank" or self.enemy_type == "Boss":
+                outline_width = max(2, display_radius // 6)
+            else:
+                outline_width = max(1, display_radius // 10)
+            pygame.draw.polygon(surface, outline_color, points, outline_width)
+        # --- End Shape Modifications ---
+
+        # Draw shield if present (using display_radius for positioning)
         if self.has_shield and self.shield_health > 0:
-            shield_radius = radius + 3
+            shield_radius = display_radius + max(2, display_radius // 8) # Position outside outline
             shield_percentage = self.shield_health / self.max_shield_health
             shield_color = (100, 100, 255, int(self.alpha * shield_percentage))
             
@@ -422,16 +478,16 @@ class Enemy:
             pygame.draw.circle(shield_surface, shield_color, (shield_radius, shield_radius), shield_radius)
             surface.blit(shield_surface, (int(pos[0] - shield_radius), int(pos[1] - shield_radius)))
         
-        # Draw status effect indicators
-        status_indicator_radius = radius + 5
+        # Draw status effect indicators (using display_radius for positioning)
+        status_indicator_base_radius = display_radius + max(4, display_radius // 5)
         status_count = len(self.status_effects)
         if status_count > 0:
             angle_step = 360 / status_count
             for i, (effect_name, _) in enumerate(self.status_effects.items()):
                 angle = math.radians(i * angle_step)
                 indicator_pos = (
-                    int(pos[0] + math.cos(angle) * status_indicator_radius),
-                    int(pos[1] + math.sin(angle) * status_indicator_radius)
+                    int(pos[0] + math.cos(angle) * status_indicator_base_radius),
+                    int(pos[1] + math.sin(angle) * status_indicator_base_radius)
                 )
                 
                 # Choose color based on effect type
@@ -455,20 +511,25 @@ class Enemy:
                     indicator_color = (200, 200, 200)
                 
                 # Draw small indicator
-                pygame.draw.circle(surface, indicator_color, indicator_pos, max(2, radius // 3))
+                indicator_draw_radius = max(2, display_radius // 4)
+                pygame.draw.circle(surface, indicator_color, indicator_pos, indicator_draw_radius)
+                pygame.draw.circle(surface, (0,0,0,150), indicator_pos, indicator_draw_radius, 1) # Add outline
         
-        # Draw health bar
-        health_bar_width = radius * 2
+        # Draw health bar (using display_radius for positioning)
+        health_bar_width = display_radius * 1.8 # Make slightly wider than polygon
         health_bar_height = 4
         health_percentage = max(0, self.health / self.max_health)
         
+        health_bar_y = int(pos[1] - display_radius - health_bar_height - 5) # Adjust vertical position slightly further up
+        
         # Background
-        pygame.draw.rect(surface, (60, 60, 60, self.alpha), (
+        health_bg_rect = pygame.Rect(
             int(pos[0] - health_bar_width / 2),
-            int(pos[1] - radius - health_bar_height - 2),
+            health_bar_y,
             health_bar_width,
             health_bar_height
-        ))
+        )
+        pygame.draw.rect(surface, (60, 60, 60, self.alpha), health_bg_rect, border_radius=1)
         
         # Health fill
         if health_percentage > 0:
@@ -482,21 +543,18 @@ class Enemy:
             else:
                 fill_color = (200, 0, 0, self.alpha)
             
-            pygame.draw.rect(surface, fill_color, (
+            health_fill_rect = pygame.Rect(
                 int(pos[0] - health_bar_width / 2),
-                int(pos[1] - radius - health_bar_height - 2),
+                health_bar_y,
                 fill_width,
                 health_bar_height
-            ))
+            )
+            pygame.draw.rect(surface, fill_color, health_fill_rect, border_radius=1)
         
-        # Draw enemy type indicator
-        if self.enemy_type != "Normal":
-            font = pygame.font.SysFont('arial', max(8, radius // 2))
-            if self.enemy_type == "Boss":
-                text_color = (255, 0, 0, self.alpha)
-            else:
-                text_color = (255, 255, 255, self.alpha)
-            
-            text = font.render(self.enemy_type[0], True, text_color)
-            text_pos = (int(pos[0] - text.get_width() / 2), int(pos[1] - text.get_height() / 2))
-            surface.blit(text, text_pos) 
+        # Draw enemy type indicator (remove for now, rely on shape/color/effects)
+        # if self.enemy_type != "Normal":
+        #     font = pygame.font.SysFont('arial', max(8, pulsating_radius // 2))
+        #     # ... (text color logic remains) ...
+        #     text = font.render(self.enemy_type[0], True, text_color)
+        #     text_pos = (int(pos[0] - text.get_width() / 2), int(pos[1] - text.get_height() / 2))
+        #     surface.blit(text, text_pos) 

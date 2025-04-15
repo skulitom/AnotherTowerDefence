@@ -99,8 +99,11 @@ class StatusPanel:
             surface.blit(selected_surf, selected_rect)
             
             # Draw tower icon
-            tower_img = assets["towers"].get(self.selected_tower_type)
+            tower_img_list = assets["towers"].get(self.selected_tower_type)
+            tower_img = tower_img_list[0] if tower_img_list else None # Get the base sprite (index 0)
+            
             if tower_img:
+                # Now tower_img is a Surface, safe to scale
                 img = pygame.transform.scale(tower_img, (48, 48))
                 img_rect = img.get_rect(midtop=(self.rect.centerx, selected_rect.bottom + 5))
                 surface.blit(img, img_rect)
@@ -114,7 +117,9 @@ class StatusPanel:
             cost_text = f"Cost: ${cost}"
             cost_color = (255, 255, 255) if self.money >= cost else (255, 100, 100)
             cost_surf = font_info.render(cost_text, True, cost_color)
-            cost_rect = cost_surf.get_rect(midtop=(self.rect.centerx, img_rect.bottom + 10 if tower_img else icon_rect.bottom + 10)) # Position below icon/image
+            # Adjust positioning based on whether img or icon was drawn
+            cost_rect_top = (img_rect.bottom if tower_img else icon_rect.bottom) + 10
+            cost_rect = cost_surf.get_rect(midtop=(self.rect.centerx, cost_rect_top))
             surface.blit(cost_surf, cost_rect)
             
             # Draw tower description with text wrapping

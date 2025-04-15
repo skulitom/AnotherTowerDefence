@@ -5,6 +5,8 @@ from pygame.math import Vector2
 from game.settings import tower_types, upgrade_paths
 from game.projectile import Projectile
 
+# Define max visual levels, matching the value in assets.py
+MAX_TOWER_VISUAL_LEVELS = 5
 
 class BaseTower:
     """Base class for all tower types"""
@@ -49,6 +51,9 @@ class BaseTower:
         # Targeting
         self.targeting_priority = "First"  # Default targeting priority
         
+        # Visuals
+        self.current_sprite = None # Will hold the current sprite to draw
+        
         # Tower-specific initialization
         self.initialize()
         
@@ -84,6 +89,9 @@ class BaseTower:
         self.upgrades[upgrade_type] += 1
         self.total_upgrades += 1
         self.level = 1 + self.total_upgrades // 2  # Level increases every 2 upgrades
+        
+        # Update the visual representation after upgrade
+        self.update_visuals()
         
         return True
         
@@ -253,30 +261,105 @@ class BaseTower:
         
         return safe_width, safe_height
 
+    def get_visual_level_index(self):
+        """Calculate the index for the tower sprite based on upgrades."""
+        # Example: 0-1 upgrades = index 0, 2-3 upgrades = index 1, etc.
+        # Ensure the index doesn't exceed the max number of loaded sprites - 1
+        visual_level = min(self.total_upgrades // 2, MAX_TOWER_VISUAL_LEVELS - 1)
+        return visual_level
+        
+    def update_visuals(self):
+        """Update the tower's current sprite based on its level/upgrades."""
+        print(f"[DEBUG] update_visuals called for {self.tower_type} (Upgrades: {self.total_upgrades})") # DEBUG
+        if self.game and self.game.assets: # Ensure game manager and assets are available
+            tower_sprite_list = self.game.assets["towers"].get(self.tower_type)
+            if tower_sprite_list:
+                visual_index = self.get_visual_level_index()
+                print(f"[DEBUG]   Calculated visual_index: {visual_index}") # DEBUG
+                if 0 <= visual_index < len(tower_sprite_list):
+                    self.current_sprite = tower_sprite_list[visual_index]
+                    print(f"[DEBUG]   Assigned sprite: {self.current_sprite}") # DEBUG
+                else:
+                    # Fallback to base sprite or last available if index is out of bounds
+                    old_sprite = self.current_sprite
+                    self.current_sprite = tower_sprite_list[0] if tower_sprite_list else None
+                    print(f"Warning: Visual index {visual_index} out of bounds for {self.tower_type}. Using fallback sprite {self.current_sprite}. Old was {old_sprite}.")
+            else:
+                self.current_sprite = None # No sprites found for this tower type
+                print(f"Warning: No sprites found for tower type {self.tower_type} in assets.")
+        else:
+            # Assets not ready yet, try again later or handle during initialization
+            print(f"[DEBUG]   Assets not ready for {self.tower_type}") # DEBUG
+            pass 
+
     def draw(self, surface, assets, show_range=False, selected=False, camera=None):
         """Draw the tower and its effects"""
+        # Ensure visuals are updated if needed (e.g., if initialized before assets were loaded)
+        if self.current_sprite is None and self.game and self.game.assets:
+            self.update_visuals()
+
         # Apply camera transform if provided
         if camera:
             screen_pos = pygame.Vector2(*camera.apply(self.pos.x, self.pos.y))
-            screen_radius = self.radius * camera.zoom
+            # Use sprite size for calculations if available, otherwise keep radius
+            if self.current_sprite:
+                sprite_width = self.current_sprite.get_width() * camera.zoom
+                sprite_height = self.current_sprite.get_height() * camera.zoom
+            else:
+                sprite_width = self.radius * 2 * camera.zoom
+                sprite_height = self.radius * 2 * camera.zoom
             screen_range = self.range * camera.zoom
         else:
             screen_pos = pygame.Vector2(self.pos)
-            screen_radius = self.radius
+            if self.current_sprite:
+                sprite_width = self.current_sprite.get_width()
+                sprite_height = self.current_sprite.get_height()
+            else:
+                sprite_width = self.radius * 2
+                sprite_height = self.radius * 2
             screen_range = self.range
         
         # Draw range circle if selected or requested
         if show_range or selected:
-            pygame.draw.circle(surface, (200, 200, 200, 100), screen_pos, screen_range, 1)
+            # Use average of sprite width/height for radius if sprite exists
+            draw_radius = (sprite_width + sprite_height) / 4 if self.current_sprite else self.radius * (camera.zoom if camera else 1)
+            pygame.draw.circle(surface, (200, 200, 200, 100), screen_pos, screen_range, max(1, int(1 * (camera.zoom if camera else 1))))
         
-        # Draw tower body
-        pygame.draw.circle(surface, self.color, screen_pos, screen_radius)
-        
-        # Draw tower outline
-        if selected:
-            pygame.draw.circle(surface, (255, 255, 255), screen_pos, screen_radius + 2, 2)
+        # --- Draw Tower Sprite (Replaces Circle Drawing) --- 
+        if self.current_sprite:
+            # Scale the sprite if camera zoom is active
+            if camera and camera.zoom != 1.0:
+                try: # Add try-except for scaling issues
+                    scaled_sprite = pygame.transform.smoothscale(self.current_sprite, (int(sprite_width), int(sprite_height)))
+                except ValueError: # Handle potential zero dimensions
+                    scaled_sprite = self.current_sprite 
+                    print(f"[DEBUG] Scaling error for {self.tower_type}: width={sprite_width}, height={sprite_height}")
+            else:
+                scaled_sprite = self.current_sprite
+                
+            sprite_rect = scaled_sprite.get_rect(center=screen_pos)
+            # DEBUG: Print sprite being drawn
+            # print(f"[DEBUG] Drawing {self.tower_type} with sprite: {self.current_sprite} at {sprite_rect.topleft}") 
+            surface.blit(scaled_sprite, sprite_rect)
+            
+            # Optional: Draw outline around the sprite if selected
+            if selected:
+                mask = pygame.mask.from_surface(scaled_sprite)
+                outline_surf = mask.to_surface(setcolor=(255, 255, 255, 200), unsetcolor=(0,0,0,0))
+                outline_offset = 2 # How far the outline extends
+                for dx in [-outline_offset, 0, outline_offset]:
+                    for dy in [-outline_offset, 0, outline_offset]:
+                        if dx != 0 or dy != 0:
+                            surface.blit(outline_surf, (sprite_rect.x + dx, sprite_rect.y + dy))
         else:
-            pygame.draw.circle(surface, (50, 50, 50), screen_pos, screen_radius, 1)
+            # Fallback: Draw original circle if sprite is missing
+            draw_radius = self.radius * (camera.zoom if camera else 1)
+            pygame.draw.circle(surface, self.color, screen_pos, draw_radius)
+            if selected:
+                pygame.draw.circle(surface, (255, 255, 255), screen_pos, draw_radius + 2, 2)
+            else:
+                pygame.draw.circle(surface, (50, 50, 50), screen_pos, draw_radius, 1)
+        # --- End Sprite Drawing ---
         
         # Draw targeting line if there's a target
         if self.targeting_enemy and self.targeting_enemy.health > 0:
@@ -296,21 +379,27 @@ class BaseTower:
         # Draw tower level indicator
         if self.level > 1:
             level_text = str(self.level)
-            font = pygame.font.SysFont(None, 20)
+            # Use asset font if available
+            font = assets['fonts'].get('body_small', pygame.font.SysFont(None, 20))
             text_surf = font.render(level_text, True, (255, 255, 255))
-            text_rect = text_surf.get_rect(center=(int(screen_pos.x), int(screen_pos.y) - screen_radius - 10))
+            # Adjust position relative to sprite size or radius
+            draw_radius = (sprite_width + sprite_height) / 4 if self.current_sprite else self.radius * (camera.zoom if camera else 1)
+            text_rect = text_surf.get_rect(center=(int(screen_pos.x), int(screen_pos.y) - draw_radius - 10))
             surface.blit(text_surf, text_rect)
         
         # Draw tower effects
-        self.draw_effects(surface, screen_pos, screen_radius, camera)
+        draw_radius = (sprite_width + sprite_height) / 4 if self.current_sprite else self.radius * (camera.zoom if camera else 1)
+        self.draw_effects(surface, screen_pos, draw_radius, camera)
         
         # Draw targeting priority if selected or hovered
         if selected or self.game.hover_tower == self:
             priority_font = pygame.font.SysFont('arial', 14)
             priority_text = priority_font.render(f"Target: {self.targeting_priority}", True, 
                                                (220, 220, 255) if selected else (180, 180, 220))
+            # Adjust position relative to sprite size or radius
+            draw_radius = (sprite_width + sprite_height) / 4 if self.current_sprite else self.radius * (camera.zoom if camera else 1)
             text_pos = (screen_pos.x - priority_text.get_width()//2, 
-                       screen_pos.y + screen_radius + 5)
+                       screen_pos.y + draw_radius + 5)
             # If selected, draw with a dark background for better visibility
             if selected:
                 text_bg = pygame.Surface((priority_text.get_width() + 4, priority_text.get_height() + 4))
@@ -321,15 +410,17 @@ class BaseTower:
         
         # Highlight if tower is buffed
         if self.tower_type != "Life" and self.buff_multiplier > 1.0:
-            buff_circle_radius = screen_radius + 5
+            draw_radius = (sprite_width + sprite_height) / 4 if self.current_sprite else self.radius * (camera.zoom if camera else 1)
+            buff_circle_radius = draw_radius + 5
             buff_surf = pygame.Surface((int(buff_circle_radius * 2), int(buff_circle_radius * 2)), pygame.SRCALPHA)
             pygame.draw.circle(buff_surf, (0, 255, 0, 100), (buff_circle_radius, buff_circle_radius), buff_circle_radius)
             surface.blit(buff_surf, (int(screen_pos.x - buff_circle_radius), int(screen_pos.y - buff_circle_radius)))
         
         # Draw selection highlight
         if selected:
+            draw_radius = (sprite_width + sprite_height) / 4 if self.current_sprite else self.radius * (camera.zoom if camera else 1)
             select_pulse = math.sin(pygame.time.get_ticks() / 150) * 2
-            select_radius = screen_radius + 10 + select_pulse
+            select_radius = draw_radius + 10 + select_pulse
             select_surf = pygame.Surface((int(select_radius * 2), int(select_radius * 2)), pygame.SRCALPHA)
             pygame.draw.circle(select_surf, (255, 255, 255, 70), (select_radius, select_radius), select_radius, 2)
             surface.blit(select_surf, (int(screen_pos.x - select_radius), int(screen_pos.y - select_radius)))

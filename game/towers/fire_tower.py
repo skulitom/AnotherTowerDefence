@@ -178,19 +178,26 @@ class FireTower(BaseTower):
         for i in range(flame_count):
             # Calculate flame position in a semicircle above tower
             angle = i * (180 / (flame_count - 1)) - 90  # -90 to 90 degrees
-            flame_x = screen_pos.x + math.cos(math.radians(angle)) * flame_width
+            base_flame_x = screen_pos.x + math.cos(math.radians(angle)) * flame_width
             flame_base_y = screen_pos.y + flame_y_offset
             
-            # Draw flame with random height variation
-            height_variation = random.uniform(0.8, 1.2) * flame_height
-            height_pulsing = math.sin(pygame.time.get_ticks() / 100 + i) * flame_height * 0.2
+            # Draw flame with dynamic flickering
+            current_time_ms = pygame.time.get_ticks()
+            flicker_speed_1 = 0.008 + (i * 0.0005) # Vary speed per flame
+            flicker_speed_2 = 0.011 + (i * 0.0003)
+            
+            height_variation = flame_height * (0.9 + 0.3 * math.sin(current_time_ms * flicker_speed_1 + i))
+            width_variation = flame_width * (0.8 + 0.4 * math.sin(current_time_ms * flicker_speed_2 + i + 1.5)) # Use different speed/offset
+            horizontal_flicker = math.sin(current_time_ms * 0.006 + i * 0.5) * flame_width * 0.15 # Subtle side-to-side motion
+            
+            flame_x = base_flame_x + horizontal_flicker
             
             # Create flame points
             flame_points = [
                 (flame_x, flame_base_y),  # Base of flame
-                (flame_x - flame_width * 0.3, flame_base_y - height_variation * 0.5),  # Left point
-                (flame_x, flame_base_y - height_variation - height_pulsing),  # Top point
-                (flame_x + flame_width * 0.3, flame_base_y - height_variation * 0.5)   # Right point
+                (flame_x - width_variation * 0.3, flame_base_y - height_variation * 0.5),  # Left point
+                (flame_x, flame_base_y - height_variation),  # Top point
+                (flame_x + width_variation * 0.3, flame_base_y - height_variation * 0.5)   # Right point
             ]
             
             # Draw flame with gradient from yellow to red

@@ -22,7 +22,6 @@ from game.managers.input_manager import InputManager
 from game.managers.wave_manager import WaveManager
 from game.managers.renderer import Renderer
 from game.managers.synergy_manager import SynergyManager
-from game.managers.weather_manager import WeatherManager
 from game.managers.evolution_manager import EvolutionManager
 
 class GameManager:
@@ -92,7 +91,6 @@ class GameManager:
         
         # Add our new systems
         self.synergy_manager = SynergyManager(self)
-        self.weather_manager = WeatherManager(self)
         self.evolution_manager = EvolutionManager(self)
         
         # Visual effects
@@ -145,10 +143,6 @@ class GameManager:
         # If systems are initialized, reset them too
         if hasattr(self, 'synergy_manager'):
             self.active_synergies = {}
-        
-        if hasattr(self, 'weather_manager'):
-            self.weather_manager.current_weather = "clear"
-            self.weather_manager.weather_timer = 0
         
         # If camera exists, reset it
         if hasattr(self, 'camera'):
@@ -266,13 +260,6 @@ class GameManager:
         # Update tower synergies
         self.synergy_manager.check_synergies()
         self.synergy_manager.update(dt)
-        
-        # Update weather
-        self.weather_manager.update(dt)
-        
-        # Process tower evolutions
-        for tower in self.towers:
-            self.evolution_manager.apply_evolution_effects(tower, dt)
         
         # Update world mouse position
         self.update_mouse_position()
@@ -561,25 +548,8 @@ class GameManager:
         # Fill background
         self.screen.fill((20, 20, 30))
         
-        # Apply weather background modifications
-        bg_mod = self.weather_manager.get_background_color_mod()
-        if bg_mod != (0, 0, 0, 0):
-            # Apply color modification
-            overlay = pygame.Surface((self.screen_width, self.screen_height), pygame.SRCALPHA)
-            r, g, b, a = bg_mod
-            overlay.fill((
-                max(0, min(255, 128 + r)),
-                max(0, min(255, 128 + g)),
-                max(0, min(255, 128 + b)),
-                a
-            ))
-            self.screen.blit(overlay, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
-        
         # Let the renderer handle most drawing
         self.renderer.render(self.screen)
-        
-        # Render weather effects
-        self.weather_manager.render(self.screen)
         
         # Render synergy effects
         self.synergy_manager.render(self.screen, self.camera)
@@ -689,12 +659,6 @@ class GameManager:
             "money": self.money,
             "score": self.score,
             "towers": [],
-            # New state information
-            "weather": {
-                "current_weather": self.weather_manager.current_weather,
-                "weather_timer": self.weather_manager.weather_timer,
-                "previous_weather": self.weather_manager.previous_weather
-            },
             "camera": {
                 "x": self.camera.x,
                 "y": self.camera.y,
@@ -816,13 +780,6 @@ class GameManager:
             # Update next_tower_id to avoid ID conflicts
             if self.towers:
                 self.next_tower_id = max(tower.id for tower in self.towers) + 1
-            
-            # Load weather state if available (v1.1+)
-            if "weather" in game_state:
-                weather_data = game_state["weather"]
-                self.weather_manager.current_weather = weather_data.get("current_weather", "clear")
-                self.weather_manager.weather_timer = weather_data.get("weather_timer", 0)
-                self.weather_manager.previous_weather = weather_data.get("previous_weather", "clear")
             
             # Load camera state if available (v1.1+)
             if "camera" in game_state:
