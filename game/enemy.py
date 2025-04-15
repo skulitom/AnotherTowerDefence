@@ -423,51 +423,42 @@ class Enemy:
             y = pos[1] + math.sin(angle) * current_radius
             points.append((int(x), int(y)))
 
-        # Draw drop shadow
-        shadow_surface = pygame.Surface((display_radius*2+8, display_radius*2+8), pygame.SRCALPHA)
-        pygame.draw.circle(shadow_surface, (0, 0, 0, 70), (display_radius+4, display_radius+8), display_radius)
-        surface.blit(shadow_surface, (int(pos[0])-display_radius-4, int(pos[1])-display_radius))
+        # --- Advanced Visual Polish ---
+        # Draw radial gradient body
+        body_surface = pygame.Surface((display_radius*2, display_radius*2), pygame.SRCALPHA)
+        center = display_radius
+        for r in range(display_radius, 0, -1):
+            grad_alpha = int(final_draw_color[3] * (r / display_radius) ** 1.7)
+            grad_color = (
+                int(final_draw_color[0] * (0.7 + 0.3 * r / display_radius)),
+                int(final_draw_color[1] * (0.7 + 0.3 * r / display_radius)),
+                int(final_draw_color[2] * (0.7 + 0.3 * r / display_radius)),
+                grad_alpha
+            )
+            pygame.draw.circle(body_surface, grad_color, (center, center), r)
+        # Add highlight (shiny spot)
+        highlight_radius = max(2, display_radius // 3)
+        highlight_pos = (center - display_radius // 3, center - display_radius // 3)
+        pygame.draw.circle(body_surface, (255,255,255,60), highlight_pos, highlight_radius)
+        # Mask body_surface to polygon shape
+        mask_surface = pygame.Surface((display_radius*2, display_radius*2), pygame.SRCALPHA)
+        poly_points = [(int(x-pos[0]+center), int(y-pos[1]+center)) for (x, y) in points]
+        if len(poly_points) >= 3:
+            pygame.draw.polygon(mask_surface, (255,255,255,255), poly_points)
+            body_surface.blit(mask_surface, (0,0), special_flags=pygame.BLEND_RGBA_MULT)
+        surface.blit(body_surface, (int(pos[0])-center, int(pos[1])-center))
 
-        # Draw radial glow
-        glow_surface = pygame.Surface((display_radius*4, display_radius*4), pygame.SRCALPHA)
-        for i in range(8, 0, -1):
-            alpha = int(16 * i)
-            pygame.draw.circle(glow_surface, self.color + (alpha,), (display_radius*2, display_radius*2), display_radius+i*2)
-        surface.blit(glow_surface, (int(pos[0])-display_radius*2, int(pos[1])-display_radius*2), special_flags=pygame.BLEND_ADD)
-
-        # Draw enemy body as polygon
+        # Draw double outline (bright inner, dark outer)
         if len(points) >= 3:
-            pygame.draw.polygon(surface, final_draw_color, points)
-
-            # Draw internal rotating element - speed varies by type
-            if self.enemy_type == "Fast":
-                inner_angle = current_time_sec * 4.0 # Faster rotation
-            elif self.enemy_type == "Tank" or self.enemy_type == "Boss":
-                inner_angle = current_time_sec * 1.0 # Slower rotation
-            else:
-                inner_angle = current_time_sec * 1.8 # Normal rotation
-                
-            inner_len = display_radius * 0.5 # Length of the rotating lines
-            line_color = (min(255, final_draw_color[0]+50), min(255, final_draw_color[1]+50), min(255, final_draw_color[2]+50), self.alpha) # Brighter internal line
-            line_width = max(1, display_radius // 8)
-
-            for i in range(2): # Draw two perpendicular lines
-                rot_angle = inner_angle + i * (math.pi / 2)
-                x1 = pos[0] + math.cos(rot_angle) * inner_len
-                y1 = pos[1] + math.sin(rot_angle) * inner_len
-                x2 = pos[0] - math.cos(rot_angle) * inner_len
-                y2 = pos[1] - math.sin(rot_angle) * inner_len
-                pygame.draw.line(surface, line_color, (int(x1), int(y1)), (int(x2), int(y2)), line_width)
-
-            # Draw outline - thicker for Tank/Boss
-            outline_color = (100, 100, 100, self.alpha)
-            if self.enemy_type == "Tank" or self.enemy_type == "Boss":
-                outline_width = max(2, display_radius // 6)
-            else:
-                outline_width = max(1, display_radius // 10)
-            pygame.draw.polygon(surface, outline_color, points, outline_width)
-        # --- End Shape Modifications ---
-
+            # Outer dark outline
+            outline_color_outer = (40, 40, 40, self.alpha)
+            outline_width_outer = max(2, display_radius // 5)
+            pygame.draw.polygon(surface, outline_color_outer, points, outline_width_outer)
+            # Inner bright outline
+            outline_color_inner = (220, 220, 255, min(160, self.alpha))
+            outline_width_inner = 2
+            pygame.draw.polygon(surface, outline_color_inner, points, outline_width_inner)
+        
         # Draw shield if present (using display_radius for positioning)
         if self.has_shield and self.shield_health > 0:
             shield_radius = display_radius + max(2, display_radius // 8) # Position outside outline
@@ -476,7 +467,7 @@ class Enemy:
             
             shield_surface = pygame.Surface((shield_radius*2, shield_radius*2), pygame.SRCALPHA)
             pygame.draw.circle(shield_surface, shield_color, (shield_radius, shield_radius), shield_radius)
-            surface.blit(shield_surface, (int(pos[0] - shield_radius), int(pos[1] - shield_radius)))
+            surface.blit(shield_surface, (int(pos[0])-shield_radius, int(pos[1])-shield_radius))
         
         # Draw status effect indicators (using display_radius for positioning)
         status_indicator_base_radius = display_radius + max(4, display_radius // 5)
@@ -550,11 +541,47 @@ class Enemy:
                 health_bar_height
             )
             pygame.draw.rect(surface, fill_color, health_fill_rect, border_radius=1)
-        
-        # Draw enemy type indicator (remove for now, rely on shape/color/effects)
-        # if self.enemy_type != "Normal":
-        #     font = pygame.font.SysFont('arial', max(8, pulsating_radius // 2))
-        #     # ... (text color logic remains) ...
-        #     text = font.render(self.enemy_type[0], True, text_color)
-        #     text_pos = (int(pos[0] - text.get_width() / 2), int(pos[1] - text.get_height() / 2))
-        #     surface.blit(text, text_pos) 
+
+        # --- Animated Energy Core ---
+        core_radius = int(display_radius * (0.21 + 0.04 * math.sin(current_time_sec * 3 + self.pulse_offset)))
+        core_color = (
+            min(255, int(final_draw_color[0] * 1.2)),
+            min(255, int(final_draw_color[1] * 1.2)),
+            min(255, int(final_draw_color[2] * 1.2)),
+            160
+        )
+        pygame.draw.circle(surface, core_color, (int(pos[0]), int(pos[1])), core_radius)
+        # Add a soft glow around the core
+        for i in range(3, 0, -1):
+            alpha = int(30 * i)
+            pygame.draw.circle(surface, core_color[:3] + (alpha,), (int(pos[0]), int(pos[1])), core_radius + i*2)
+
+        # --- Orbiting Particles ---
+        num_particles = 5
+        particle_radius = max(2, display_radius // 8)
+        orbit_r = int(display_radius * 0.75)
+        for i in range(num_particles):
+            angle = current_time_sec * 1.5 + i * (2 * math.pi / num_particles) + self.pulse_offset
+            px = pos[0] + math.cos(angle) * orbit_r
+            py = pos[1] + math.sin(angle) * orbit_r
+            particle_alpha = 90 + 60 * math.sin(current_time_sec * 2 + i)
+            pygame.draw.circle(surface, (255,255,255,int(particle_alpha)), (int(px), int(py)), particle_radius)
+
+        # --- Rotating Internal Lines ---
+        if len(points) >= 3:
+            if self.enemy_type == "Fast":
+                inner_angle = current_time_sec * 4.0 # Faster rotation
+            elif self.enemy_type == "Tank" or self.enemy_type == "Boss":
+                inner_angle = current_time_sec * 1.0 # Slower rotation
+            else:
+                inner_angle = current_time_sec * 1.8 # Normal rotation
+            inner_len = display_radius * 0.5
+            line_color = (min(255, final_draw_color[0]+50), min(255, final_draw_color[1]+50), min(255, final_draw_color[2]+50), self.alpha)
+            line_width = max(1, display_radius // 8)
+            for i in range(2):
+                rot_angle = inner_angle + i * (math.pi / 2)
+                x1 = pos[0] + math.cos(rot_angle) * inner_len
+                y1 = pos[1] + math.sin(rot_angle) * inner_len
+                x2 = pos[0] - math.cos(rot_angle) * inner_len
+                y2 = pos[1] - math.sin(rot_angle) * inner_len
+                pygame.draw.line(surface, line_color, (int(x1), int(y1)), (int(x2), int(y2)), line_width)

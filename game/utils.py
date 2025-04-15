@@ -40,7 +40,6 @@ class Camera:
         self.height = height
         if gameplay_area:
             self.boundaries = gameplay_area
-        self.enforce_boundaries()
         
     def apply(self, x, y):
         """Convert world coordinates to screen coordinates"""
@@ -48,14 +47,6 @@ class Camera:
         screen_y = (y - self.y) * self.zoom + self.height / 2
         return screen_x, screen_y
     
-    def apply_rect(self, rect):
-        """Convert a pygame Rect from world to screen coordinates"""
-        x1, y1 = self.apply(rect.left, rect.top)
-        x2, y2 = self.apply(rect.right, rect.bottom)
-        width = x2 - x1
-        height = y2 - y1
-        return pygame.Rect(x1, y1, width, height)
-        
     def unapply(self, screen_x, screen_y):
         """Convert screen coordinates to world coordinates"""
         x = (screen_x - self.width / 2) / self.zoom + self.x
@@ -122,33 +113,10 @@ class Camera:
             self.y = world_y - (world_y - self.y) / zoom_ratio
             self.zoom = new_zoom
             
-            # Check boundaries after zooming
-            self.enforce_boundaries()
-            
     def move(self, dx, dy):
         """Move camera by the specified amount"""
         self.x += dx / self.zoom
         self.y += dy / self.zoom
-        self.enforce_boundaries()
-            
-    def enforce_boundaries(self):
-        """Ensure camera stays within boundaries"""
-        if self.boundaries:
-            # Calculate visible area in world coordinates
-            half_width = self.width / (2 * self.zoom)
-            half_height = self.height / (2 * self.zoom)
-            
-            # Enforce x-boundary
-            if self.boundaries[0] is not None and self.x - half_width < self.boundaries[0]:
-                self.x = self.boundaries[0] + half_width
-            if self.boundaries[2] is not None and self.x + half_width > self.boundaries[2]:
-                self.x = self.boundaries[2] - half_width
-            
-            # Enforce y-boundary
-            if self.boundaries[1] is not None and self.y - half_height < self.boundaries[1]:
-                self.y = self.boundaries[1] + half_height
-            if self.boundaries[3] is not None and self.y + half_height > self.boundaries[3]:
-                self.y = self.boundaries[3] - half_height
 
 
 class Particle:
@@ -242,25 +210,6 @@ class ParticleSystem:
     def draw(self, surface, camera=None):
         for p in self.particles:
             p.draw(surface, camera)
-
-
-def draw_hp_bar(surface, x, y, width, height, value, max_value, border_color=(200, 200, 200), fill_color=(0, 255, 0), background_color=(60, 60, 60), camera=None):
-    if camera:
-        screen_x, screen_y = camera.apply(x, y)
-        scaled_width = width * camera.zoom
-        scaled_height = height * camera.zoom
-    else:
-        screen_x, screen_y = x, y
-        scaled_width = width
-        scaled_height = height
-
-    ratio = max(0, min(value / max_value, 1))
-    outline_rect = pygame.Rect(screen_x, screen_y, scaled_width, scaled_height)
-    fill_rect = pygame.Rect(screen_x, screen_y, scaled_width * ratio, scaled_height)
-    
-    pygame.draw.rect(surface, background_color, outline_rect)
-    pygame.draw.rect(surface, fill_color, fill_rect)
-    pygame.draw.rect(surface, border_color, outline_rect, 1)
 
 
 def create_element_icon(element_type, size):
@@ -379,3 +328,7 @@ def draw_panel_background(surface, rect, title=None, dark_theme=True, border_rad
         return title_rect.bottom + 8  # Adjusted content start position
     
     return rect.y + 15  # Adjusted content start position if no title 
+
+def draw_hp_bar(surface, x, y, width, height, value, max_value, border_color=(200, 200, 200), fill_color=(0, 255, 0), background_color=(60, 60, 60), camera=None):
+    """Draw a health bar (never used)"""
+    pass
